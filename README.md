@@ -28,7 +28,7 @@ communicate with the SWF service.
 
 A workflow consists of a collection of nodes representing tasks.  A
 task can have inputs and an output.  Tasks can declare dependencies on
-other tasks, in which case the ouputs of the dependencies will be
+other tasks, in which case the outputs of the dependencies will be
 provided as inputs to the task.
 
 A workflow itself can accept inputs, and specify an output.  This
@@ -99,7 +99,7 @@ inputs are combined into a dictionary with the following format:
 
 The `param` entry contains the value of the `param` property if
 given.  The `inputs` entry contains the outputs of any tasks this task
-depends on, keyed by the task ids. Note that there is no input from
+depends on, keyed by the task names. Note that there is no input from
 the Sleep task, because `TimerTask` doesn't produce an output.
 
 As a special case, if a task contains only a single input, either a
@@ -118,14 +118,14 @@ a Python callable which will be passed the input in the format shown
 above, and returns the transformed input that will be passed to the
 task.  The `Concat` task in the above example demonstrates this.  The
 `string-concat` lambda expects a list of strings as input, so the
-input transformer converts the adapts the input to expected format.
+input transformer adapts the input to the expected format.
 
 Finally, in the example above, notice that the `UpperCaser` task
 declares a dependency on `workflow.start_task`.  The start task of a
 workflow is a pseudo-task which represents the start of the workflow.
 The output of the start task is whatever input was passed to the
 workflow when starting it.  A task which wants to access the workflow
-input paramaters can declare `start_task` as a dependency, so that it
+input parameters can declare `start_task` as a dependency, so that it
 will receive the workflow input as an input.
 
 ### Executing a Workflow
@@ -193,7 +193,7 @@ aws swf start-workflow-execution --domain SWFSampleDomain \
 The following types of tasks can be used in a workflow.
 
 **ActivityTask**: Executes a task on any computer that can
-communcicate with the SWF service, such as an EC2 machine, or a
+communicate with the SWF service, such as an EC2 machine, or a
 machine outside of AWS. The machine which executes the task will need
 to run an activity worker process which polls the SWF service for
 tasks to run.

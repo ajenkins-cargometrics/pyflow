@@ -9,7 +9,8 @@ setup(
     url='http://www.cargometrics.com',
     description='Python Workflow Library',
     install_requires=[
-        'boto3'
+        'boto3',
+        'attrs'
     ],
     test_suite='nose.collector',
     tests_require=[

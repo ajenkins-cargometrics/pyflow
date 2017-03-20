@@ -8,15 +8,15 @@ def main():
     workflow_version = '1.0'
     lambda_role='arn:aws:iam::528461152743:role/swf-lambda'
 
-    workflow_id = pyflow.start_workflow(
+    execution_info = pyflow.start_workflow(
         domain=domain,
         workflow_name=workflow_name,
         workflow_version=workflow_version,
         task_list=task_list,
         lambda_role=lambda_role,
-        input='World')
+        input='"World"')
 
-    print "Workflow started with workflow_id {}".format(workflow_id)
+    print "Workflow started: {}".format(execution_info)
 
 
 if __name__ == '__main__':
