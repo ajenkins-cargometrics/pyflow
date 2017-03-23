@@ -81,7 +81,6 @@ class TaskClientBase(object):
 
 class LambdaTaskClient(TaskClientBase):
     def make_decisions(self, task_state):
-        # TODO: handle WAITING_TO_RETRY state
         if task_state.state == TaskState.NOT_STARTED:
             attribs = {
                 'id': self.workflow_state.new_task_id(task_state.task.name),
