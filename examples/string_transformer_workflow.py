@@ -3,44 +3,27 @@ import logging
 import pyflow
 
 
-def create_workflow():
-    """Creates a workflow which pipes a string through 3 lambda functions.
-    First the string-upcase function converts the string to uppercase.
-    Then the string-reverse function reverses the string, finally the
-    string-concat function concatenates a fixed prefix onto the
-    reversed string.
-    """
+class StringTransformer(pyflow.Workflow):
+    NAME = 'StringTransformer'
+    VERSION = '1.0'
 
-    workflow = pyflow.Workflow('StringTransformer', version='1.0', result_task_name='Concat')
+    def run(self, swf, workflow_input):
+        upcased = [swf.invoke_lambda('string_upcase', s) for s in workflow_input]
 
-    upper_caser_task = workflow.add(pyflow.LambdaTask(
-        name='UpperCaser',
-        lambda_function_name='string_upcase',
-        depends_on=[workflow.start_task],
-        num_retries=2,
-        retry_interval=5))
+        reversed_strs = [swf.invoke_lambda('string_reverse', s.result()) for s in upcased]
 
-    reverser_task = workflow.add(pyflow.LambdaTask(
-        name='Reverser',
-        lambda_function_name='string_reverse',
-        depends_on=[upper_caser_task]))
+        swf.sleep(5)
 
-    workflow.add(pyflow.LambdaTask(
-        name='Concat',
-        lambda_function_name='string_concat',
-        param='Hello',
-        depends_on=[reverser_task],
-        transform_input=lambda inp: [inp['param'], ' ',
-                                     inp['inputs']['Reverser']]))
+        concatted = swf.invoke_lambda('string_concat', [s.result() for s in reversed_strs])
 
-    return workflow
+        return concatted.result()
 
 
 def main():
     logging.basicConfig()
-    pyflow.workflow_runner.logger.setLevel(logging.DEBUG)
+    pyflow.decider.logger.setLevel(logging.DEBUG)
 
-    workflow = create_workflow()
+    workflow = StringTransformer()
     domain = 'SWFSampleDomain'
     task_list = 'string-transformer-decider'
 

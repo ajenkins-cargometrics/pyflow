@@ -14,7 +14,7 @@ def main():
         workflow_version=workflow_version,
         task_list=task_list,
         lambda_role=lambda_role,
-        input='"World"')
+        input='["Hello", " ", "World"]')
 
     print "Workflow started: {}".format(execution_info)
 

@@ -1,4 +1,13 @@
+import json
 import uuid
+
+
+def encode_task_input(input_obj):
+    return json.dumps(input_obj)
+
+
+def decode_task_result(result_str):
+    return json.loads(result_str)
 
 
 def iter_collection(paginator, items_key):
@@ -59,50 +68,6 @@ def schedule_activity_task(swf, task, task_list, activity_type, **options):
                 'scheduleActivityTaskDecisionAttributes': attribs
             }
         ])
-
-
-def schedule_lambda_task(swf, task, function_name, **options):
-    attribs = {'id': 'lambdaId-' + str(uuid.uuid4()),
-               'name': function_name}
-    attribs.update(options)
-
-    swf.respond_decision_task_completed(
-        taskToken=task['taskToken'],
-        decisions=[
-            {
-                'decisionType': 'ScheduleLambdaFunction',
-                'scheduleLambdaFunctionDecisionAttributes': attribs
-            }
-        ])
-
-
-def complete_workflow_execution(swf, task):
-    swf.respond_decision_task_completed(
-        taskToken=task['taskToken'],
-        decisions=[
-            {
-                'decisionType': 'CompleteWorkflowExecution',
-                'completeWorkflowExecutionDecisionAttributes': {
-                    'result': 'success'
-                }
-            }
-        ]
-    )
-
-
-def fail_workflow_execution(swf, task, reason='', details=''):
-    swf.respond_decision_task_completed(
-        taskToken=task['taskToken'],
-        decisions=[
-            {
-                'decisionType': 'FailWorkflowExecution',
-                'failWorkflowExecutionDecisionAttributes': {
-                    'reason': reason,
-                    'details': details
-                }
-            }
-        ]
-    )
 
 
 def init_domain(swf):
