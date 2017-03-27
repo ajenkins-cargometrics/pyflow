@@ -8,11 +8,20 @@ class StringTransformer(pyflow.Workflow):
     VERSION = '1.0'
 
     def run(self, swf, workflow_input):
-        upcased = [swf.invoke_lambda('string_upcase', s) for s in workflow_input]
+        # for loops work.  In this case upcased will contain a list of futures
+        upcased = []
+        for s in workflow_input:
+            upcased.append(swf.invoke_lambda('string_upcase', s))
 
+        # list comprehensions as well
         reversed_strs = [swf.invoke_lambda('string_reverse', s.result()) for s in upcased]
 
+        # Sleep for 5 seconds
         swf.sleep(5)
+
+        # Wait for all futures to finish before proceeding.  This normally isn't necessary since just calling result()
+        # on each future would accomplish the same thing.
+        swf.wait_for_all(reversed_strs)
 
         concatted = swf.invoke_lambda('string_concat', [s.result() for s in reversed_strs])
 

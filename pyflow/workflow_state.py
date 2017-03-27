@@ -52,6 +52,9 @@ class WorkflowState(object):
     workflow_id = attr.ib()
     run_id = attr.ib()
 
+    # A datetime object identifying when this workflow instance started
+    workflow_start_time = attr.ib(default=None)
+
     # Input to the workflow when it was started
     input = attr.ib(default=None)
 
@@ -73,7 +76,7 @@ class WorkflowState(object):
 
         :param invocation_id: The invocation id of the state to fetch
         :param initial_state: The initial value to set the state property to if a new InvocationState is created
-        :return:
+        :return: The InvocationState object for invocation_id
         """
         invocation_state = self.invocation_states.get(invocation_id)
         if invocation_state is None:

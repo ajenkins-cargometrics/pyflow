@@ -1,6 +1,6 @@
-from . import exceptions
-from . import utils
-from . import workflow_state as ws
+from pyflow import exceptions
+from pyflow import utils
+from pyflow import workflow_state as ws
 
 
 class DecisionTaskHelper(object):
@@ -52,13 +52,15 @@ class DecisionTaskHelper(object):
     def is_replay_event(self, event):
         return event['eventId'] <= self.previous_started_event_id
 
-    def schedule_lambda_invocation(self, invocation_id, function_name, input_arg):
+    def schedule_lambda_invocation(self, invocation_id, function_name, input_arg, timeout=None):
         """
         Add a ScheduleLambdaFunction decision to the list of decisions.
 
         :param invocation_id: The id to use for the event
         :param function_name: Lambda function name
         :param input_arg: Input argument to the lambda function.  It should be a JSON-serializable object.
+        :param timeout: Timeout value, in seconds, after which the lambda function is considered to have failed
+          if it has not returned.
         """
         attributes = {
             'id': invocation_id,
@@ -67,6 +69,9 @@ class DecisionTaskHelper(object):
 
         if input_arg is not None:
             attributes['input'] = utils.encode_task_input(input_arg)
+
+        if timeout:
+            attributes['startToCloseTimeout'] = str(timeout)
 
         self.decisions.append({
             'decisionType': 'ScheduleLambdaFunction',
@@ -192,7 +197,7 @@ class DecisionTaskHelper(object):
 
         root_id = event_attrs.get('scheduledEventId',
                                   event_attrs.get('startedEventId'))
-        if root_id:
+        if root_id is not None:
             found = [e for e in self.events if e['eventId'] == root_id]
             return self.event_attributes(found[0])
         else:

@@ -104,27 +104,24 @@ class Decider(object):
         self._client = client
 
     def ensure_workflows_registered(self):
-        registered_workflow_types = [wt[u'workflowType']
-                                     for wt in utils.list_workflow_types(self._client, self._domain)]
-
-        default_options = dict(
-            defaultChildPolicy='TERMINATE',
-            defaultTaskStartToCloseTimeout='3600',
-            defaultExecutionStartToCloseTimeout=str(24 * 3600))
-
-        for workflow in self._workflows:
+        """
+        Register all the workflow types passed to the constructor with SWF, if they are not already registered
+        """
+        for workflow in self._workflows.values():
             workflow_type = dict(name=workflow.name, version=workflow.version)
-            if workflow_type not in registered_workflow_types:
-                logger.info("Registering workflow: %r", workflow_type)
-                options = default_options.copy()
-                options.update({k: str(v) for k, v in workflow.options.items()})
+            options = {k: str(v) for k, v in workflow.options.items()}
 
+            try:
                 self._client.register_workflow_type(
                     domain=self._domain,
                     name=workflow_type['name'],
                     version=workflow_type['version'],
                     defaultTaskList={'name': self._task_list},
                     **options)
+            except self._client.exceptions.TypeAlreadyExistsFault:
+                logger.info('Workflow %r already registered', workflow_type)
+            else:
+                logger.info("Registered workflow: %r", workflow_type)
 
     def process_decision_task(self, decision_task):
         """
@@ -176,8 +173,9 @@ class Decider(object):
         return decision_helper
 
     def poll_for_decision_tasks(self, max_time=None):
-        start_time = time.time()
+        self.ensure_workflows_registered()
 
+        start_time = time.time()
         logger.info('Beginning to poll for decisions in domain {!r}, task_list {!r}'.format(
             self._domain, self._task_list))
 
@@ -271,6 +269,7 @@ class Decider(object):
 
     def handle_workflow_execution_started(self, event, decision_helper):
         attributes = decision_helper.event_attributes(event)
+        decision_helper.workflow_state.workflow_start_time = event['eventTimestamp']
         decision_helper.workflow_state.input = utils.decode_task_result(attributes.get('input', 'null'))
         return True
 

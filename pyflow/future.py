@@ -1,4 +1,4 @@
-from . import exceptions
+from pyflow import exceptions
 
 
 class Future(object):

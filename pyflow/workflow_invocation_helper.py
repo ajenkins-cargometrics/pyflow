@@ -1,11 +1,11 @@
-from . import exceptions
-from . import future
-from . import workflow_state as ws
+from pyflow import exceptions
+from pyflow import future
+from pyflow import workflow_state as ws
 
 
 class WorkflowInvocationHelper(object):
     """
-    Provides the interface that workflow functions use to interact with the decider.
+    Provides the interface and functionality that workflow functions use to interact with the decider.
     """
 
     def __init__(self, decision_helper):
@@ -27,23 +27,25 @@ class WorkflowInvocationHelper(object):
         """The workflowId of the currently running workflow"""
         return self._workflow_state.workflow_id
 
-    def invoke_lambda(self, function_name, input_arg):
+    def invoke_lambda(self, function_name, input_arg, timeout=None):
         """
         Schedule a lambda invocation
 
         :param function_name: The name of the lambda function to invoke
         :param input_arg: Input argument for the lambda.  Must be a JSON-serializable object.
+        :param timeout: Timeout value, in seconds, after which the lambda function is considered to have failed
+          if it has not returned.  It can be any integer from 1-300.  If not specified, defaults to 300s.
         :return: A Future which yields the result of the lambda function
         """
         invocation_id = self._next_invocation_id('lambda')
-        invocation_state = self._workflow_state.invocation_states.get(invocation_id)
+        invocation_state = self._workflow_state.get_invocation_state(invocation_id)
         out_fut = future.Future()
 
-        if invocation_state is None:
-            self._workflow_state.get_invocation_state(invocation_id, ws.InvocationState.HANDLED)
+        if invocation_state.state == ws.InvocationState.NOT_STARTED:
+            invocation_state.state = ws.InvocationState.HANDLED
 
             if not self._workflow_state.is_replaying:
-                self._decision_helper.schedule_lambda_invocation(invocation_id, function_name, input_arg)
+                self._decision_helper.schedule_lambda_invocation(invocation_id, function_name, input_arg, timeout)
         elif invocation_state.done:
             self._decision_helper.set_invocation_result(invocation_state, out_fut)
 
@@ -70,10 +72,10 @@ class WorkflowInvocationHelper(object):
         :param seconds: Number of seconds to sleep
         """
         invocation_id = self._next_invocation_id('sleep')
-        invocation_state = self._workflow_state.invocation_states.get(invocation_id)
+        invocation_state = self._workflow_state.get_invocation_state(invocation_id)
 
-        if invocation_state is None:
-            self._workflow_state.get_invocation_state(invocation_id, ws.InvocationState.HANDLED)
+        if invocation_state.state == ws.InvocationState.NOT_STARTED:
+            invocation_state.state = ws.InvocationState.HANDLED
 
             if not self._workflow_state.is_replaying:
                 self._decision_helper.start_timer(invocation_id, seconds)
@@ -89,7 +91,18 @@ class WorkflowInvocationHelper(object):
     def wait_for_all(self, *futures):
         """
         Waits for all the futures to be done.
+
+        :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
         """
+        if any(isinstance(f, list) for f in futures):
+            flattened = []
+            for f in futures:
+                if isinstance(f, list):
+                    flattened.extend(f)
+                else:
+                    flattened.append(f)
+            futures = flattened
+
         if not all(f.done for f in futures):
             raise exceptions.WorkflowBlockedException()
 
