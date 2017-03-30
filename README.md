@@ -1,132 +1,47 @@
 # pyflow
 
-A Python workflow framework based on the AWS
-[Simple Workflow Service](https://aws.amazon.com/documentation/swf/) (SWF).
+A Python workflow framework based on the AWS [Simple Workflow Service][SWF].
+
+[SWF]: https://aws.amazon.com/documentation/swf/
 
 ## Summary
 
-Pyflow is a Python library which supports defining workflows,
-consisting of a network of tasks, which can execute across distributed
-computing resources.  It is implemented using AWS's SWF service.
+Pyflow is a Python library which supports defining distributed
+asynchronous workflow applications using ordinary procedural python
+code.  It is implemented using [SWF].  Workflow components can can be
+implemented as AWS Lambda functions, or activity functions implemented
+in Python, Ruby or Java which run on any computing resource capable of
+connecting to SWF.
 
-Pyflow allows defining a workflow declaratively, as a dependency graph
-of tasks.  Tasks can be dependent on the successful completion of
-previous tasks, and can receive the output of previous tasks as
-inputs.  Tasks will be executed concurrently when possible. The
-framework supports retrying tasks and error handling.
+Pyflow is heavily inspired by the AWS [Flow Framework for Java][Java Flow]
+and [Flow Framework for Ruby][Ruby Flow], but makes no attempt to be compatible
+with either of those frameworks.
 
-Future versions of the framework may support looping and conditional
-execution of tasks.
-
-Executable tasks can be either AWS Lambda functions, or activities
-written in Python or Ruby which run on any computer which can
-communicate with the SWF service.
+[Java Flow]: http://docs.aws.amazon.com/amazonswf/latest/awsflowguide/welcome.html
+[Ruby Flow]: http://docs.aws.amazon.com/amazonswf/latest/awsrbflowguide/
 
 ## Programming Model
 
 ### Defining a Workflow
 
-A workflow consists of a collection of nodes representing tasks.  A
-task can have inputs and an output.  Tasks can declare dependencies on
-other tasks, in which case the outputs of the dependencies will be
-provided as inputs to the task.
-
-A workflow itself can accept inputs, and specify an output.  This
-allows parameters to be passed to a workflow.  It also allows
-workflows to be used as tasks in another workflow.
-
-This example creates a workflow which pipes a string through 3 lambda
-functions.  First the string-upcase function converts the string to
-uppercase.  Then the string-reverse function reverses the string,
-finally the string-concat function concatenates a fixed prefix onto
-the reversed string.
-
-
-```python
-import pyflow
-
-workflow = pyflow.Workflow('StringTransformer', version='1.0')
-
-upper_caser_task = workflow.add(pyflow.LambdaTask(
-    name='UpperCaser',
-    lambda_function='string-upcase',
-    depends_on=[workflow.start_task]))
-
-reverser_task = workflow.add(pyflow.LambdaTask(
-    name='Reverser',
-    lambda_function='string-reverse',
-    depends_on=[upper_caser_task]))
-
-sleep_task = workflow.add(pyflow.TimerTask(
-    name='Sleep',
-    duration=30,
-    depends_on=[reverser_task]))
-
-workflow.add(pyflow.LambdaTask(
-    name='Concat',
-    lambda_function='string-concat',
-    param='Hello',
-    depends_on=[sleep_task, reverser_task],
-    transform_input=lambda inp: [inp['param'], ' ', inp['inputs']['Reverser']]))
-
-```
-
-See the [Task Types](#task-types) section for a full list of the
-supported task types.
-
-Every task has an `name` property, which is a user-provided string that
-is required to be unique within a workflow.
-
-The `depends_on` property specifies a list of tasks which must
-complete before a task can run.
-
-The `num_retries` and `time_between_retries` properties allow
-specifying retry behavior when task fails. 
-
-Tasks take two kinds of inputs.  The `param` property allows
-specifying any JSON-serializable object in the workflow definition
-which will always be passed to the task.  Additionally, the outputs of
-any tasks in the `depends_on` property are passed to the task.  The
-inputs are combined into a dictionary with the following format:
-
-```python
-# Input to the Concat task shown above
-{
- 'param': 'Hello',
- 'inputs': {'Reverser': 'DLROW'}
-}
-```
-
-The `param` entry contains the value of the `param` property if
-given.  The `inputs` entry contains the outputs of any tasks this task
-depends on, keyed by the task names. Note that there is no input from
-the Sleep task, because `TimerTask` doesn't produce an output.
-
-As a special case, if a task contains only a single input, either a
-`param` property, or a `depends_on` with a single dependency, then the
-value is passed directly, instead of wrapping it in a dict.  For
-example, if the workflow is called with 'World' as the input, then the
-input to the `UpperCaser` task in the above example will be just:
+To define a workflow, you subclass the `pyflow.Workflow` class, and
+implement the `run` method to define the workflow's behavior.  The
+'run' method will be passed two arguments -- a
+`WorkflowInvocationHelper` object which provides the interface for
+interacting with SWF, and an input argument, which is an arbitrary
+value that can be passed to the workflow when invoking it.  Here is an
+example:
 
 ``` python
-'World'
+import pyflow
+
+class MyWorkflow(pyflow.Workflow):
+    NAME = 'MyWorkflow'
+    VERSION = '1.0'
+    
+    def run(self, swf, arg):
+        
 ```
-
-To support invoking lambdas or other tasks which expect input in some
-other format, provide the `transform_input` property, which should be
-a Python callable which will be passed the input in the format shown
-above, and returns the transformed input that will be passed to the
-task.  The `Concat` task in the above example demonstrates this.  The
-`string-concat` lambda expects a list of strings as input, so the
-input transformer adapts the input to the expected format.
-
-Finally, in the example above, notice that the `UpperCaser` task
-declares a dependency on `workflow.start_task`.  The start task of a
-workflow is a pseudo-task which represents the start of the workflow.
-The output of the start task is whatever input was passed to the
-workflow when starting it.  A task which wants to access the workflow
-input parameters can declare `start_task` as a dependency, so that it
-will receive the workflow input as an input.
 
 ### Executing a Workflow
 

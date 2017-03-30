@@ -78,6 +78,67 @@ class DecisionTaskHelper(object):
             'scheduleLambdaFunctionDecisionAttributes': attributes
         })
 
+    def schedule_activity_invocation(self, invocation_id, activity_name, activity_version, input_arg, timeout=None,
+                                     task_list=None):
+        """
+        Add a ScheduleActivityTask decision to the list of decisions.
+
+        :param invocation_id: The id to use for the event
+        :param activity_name: Activity type name
+        :param activity_version: Activity type version
+        :param input_arg: Input argument to the activity.  It should be a JSON-serializable object.
+        :param timeout: Timeout value, in seconds, after which the activity task is considered to have failed
+          if it has not returned.
+        :param task_list: Name of the SWF task list that the activity worker is listening for events on.  If not given,
+          The default registered with the activity type will be used.
+        """
+        attributes = {
+            'activityId': invocation_id,
+            'activityType': {'name': activity_name, 'version': activity_version}
+        }
+
+        if input_arg is not None:
+            attributes['input'] = utils.encode_task_input(input_arg)
+
+        if timeout:
+            attributes['startToCloseTimeout'] = str(timeout)
+
+        if task_list:
+            attributes['taskList'] = {'name': task_list}
+
+        self.decisions.append({
+            'decisionType': 'ScheduleActivityTask',
+            'scheduleActivityTaskDecisionAttributes': attributes
+        })
+
+    def schedule_child_workflow_invocation(self, invocation_id, name, version, input_arg=None,
+                                           child_policy=None, lambda_role=None, task_list=None,
+                                           execution_start_to_close_timeout=None):
+        attributes = {
+            'workflowId': invocation_id,
+            'workflowType': {'name': name, 'version': version}
+        }
+
+        if input_arg is not None:
+            attributes['input'] = utils.encode_task_input(input_arg)
+
+        if child_policy is not None:
+            attributes['childPolicy'] = child_policy
+
+        if lambda_role is not None:
+            attributes['lambdaRole'] = lambda_role
+
+        if task_list is not None:
+            attributes['taskList'] = {'name': task_list}
+
+        if execution_start_to_close_timeout is not None:
+            attributes['executionStartToCloseTimeout'] = str(execution_start_to_close_timeout)
+
+        self.decisions.append({
+            'decisionType': 'StartChildWorkflowExecution',
+            'startChildWorkflowExecutionDecisionAttributes': attributes
+        })
+
     def start_timer(self, invocation_id, seconds):
         self.decisions.append({
             'decisionType': 'StartTimer',
@@ -127,7 +188,7 @@ class DecisionTaskHelper(object):
         self.decisions.append({
             'decisionType': 'CompleteWorkflowExecution',
             'completeWorkflowExecutionDecisionAttributes': {
-                'result': result
+                'result': utils.encode_task_input(result)
             }
         })
 
@@ -146,6 +207,17 @@ class DecisionTaskHelper(object):
                 'reason': reason,
                 'details': details
             }
+        })
+
+    def cancel_workflow(self, details):
+        self.workflow_state.completed = True
+        self.should_delete = True
+        attributes = {}
+        if details is not None:
+            attributes['details'] = details
+        self.decisions.append({
+            'decisionType': 'CancelWorkflowExecution',
+            'cancelWorkflowExecutionDecisionAttributes': attributes
         })
 
     def event_invocation_id(self, event):
@@ -196,10 +268,14 @@ class DecisionTaskHelper(object):
             return None
 
         root_id = event_attrs.get('scheduledEventId',
-                                  event_attrs.get('startedEventId'))
+                                  event_attrs.get('initiatedEventId',
+                                                  event_attrs.get('startedEventId')))
         if root_id is not None:
             found = [e for e in self.events if e['eventId'] == root_id]
-            return self.event_attributes(found[0])
+            if found:
+                return self.event_attributes(found[0])
+            else:
+                return event_attrs
         else:
             return event_attrs
 

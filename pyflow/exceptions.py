@@ -8,7 +8,9 @@ class DeciderException(PyflowException):
     pass
 
 
-class WorkflowBlockedException(PyflowException):
+# This class is intentionally not derived from PyflowException, so that workflow functions can catch PyflowException
+# for error handling without interfering with pyflow.
+class WorkflowBlockedException(Exception):
     """Exception thrown from a wait_for* method to exit to the event loop when a workflow execution is blocked."""
     pass
 

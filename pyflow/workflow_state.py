@@ -52,14 +52,14 @@ class WorkflowState(object):
     workflow_id = attr.ib()
     run_id = attr.ib()
 
+    # The ARN of the lambda role specified when starting this workflow
+    lambda_role = attr.ib(default=None)
+
     # A datetime object identifying when this workflow instance started
     workflow_start_time = attr.ib(default=None)
 
     # Input to the workflow when it was started
     input = attr.ib(default=None)
-
-    # True if the most recently consumed event is a replay event
-    is_replaying = attr.ib(default=False)
 
     # True if this workflow has completed, whether successfully or not.
     completed = attr.ib(default=False)

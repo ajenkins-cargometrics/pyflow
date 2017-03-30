@@ -12,8 +12,8 @@ setup(
         'boto3',
         'attrs'
     ],
-    test_suite='nose.collector',
+    setup_requires=['pytest-runner'],
     tests_require=[
-        'nose>=1.3.4',
+        'pytest',
     ]
 )

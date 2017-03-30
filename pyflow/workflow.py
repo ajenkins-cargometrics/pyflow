@@ -14,8 +14,10 @@ class Workflow(object):
     # default workflow options
     DEFAULT_OPTIONS = dict(
         defaultChildPolicy='TERMINATE',
-        defaultTaskStartToCloseTimeout=3600,
-        defaultExecutionStartToCloseTimeout=24 * 3600)
+        # default timeout in seconds for a task in this workflow to complete
+        defaultTaskStartToCloseTimeout=600,
+        # default timeout in seconds for an instance of this workflow to complete
+        defaultExecutionStartToCloseTimeout=3600)
 
     # Workflow subclasses can redefine this to override default workflow options
     OPTIONS = {}

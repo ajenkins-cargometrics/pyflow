@@ -7,7 +7,10 @@ def encode_task_input(input_obj):
 
 
 def decode_task_result(result_str):
-    return json.loads(result_str)
+    if result_str is None:
+        return None
+    else:
+        return json.loads(result_str)
 
 
 def iter_collection(paginator, items_key):
