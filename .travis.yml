@@ -1,0 +1,19 @@
+language: python
+python: 2.7
+sudo: false
+
+install:
+- pip install -e .
+- pip install -U pytest
+
+script:
+- pytest tests
+
+deploy:
+  provider: pypi
+  user: ajenkins
+  password:
+    secure: tBUSFHmwhxFkXJRKLGxeE5CL3M6oHSrCDTRnOTqtn3SeFWxCO0biafIgBJ17GXVXlKrGb4dZGl/TWKrVkK/J3f4Cs1BjZgDsaRY/jxy0usltWsF/18TKE6nWBtqGOWZR9ZWlwjua9zpvYtRs2kFaOZauRcrAnJH/2qPX4ezkqbqOpyhpIBZ6zlBRjnAKOCnIfCI/dINdDumiSCRD8cj6y3uabSIx+WQu6C7CqcJDyWXUbrdcYGjwHOYG2vmJuR12v81B1wDnPmTFh5berQv9pc5U5zYUqw1hgmX62H595wOKJnw/akALoVwxOXy0c1sLtaFX7aONeJMk5ab1dAnEo1IaNXa9O1pqSp7N4ZgoCcvXKfBsB2H8MHCzTRDrvg2SZHhC5pHxtQIGm4GcVuxC/8THL+xaMQtVwGP+UncVwQtnjVt/VG09DuN+kx96dZeuqzCeyRKso6jRip3hJ3vDGud3E6hpY+JpgbKugeKQ+wEaQH8exnr0KUHQAKBaz0TPT3qRlGNMELkmYn+fOEHRpWfAFjNPERYYqonYqffalicJA0g2joaunIFb8j+BNiB8MfQkY6HUWxn2OedRfOerdmEKaUHLVOCWA+iGUvABYNL0soxB3n2TPsuzcsgdARQR9ziS05hxFQ5CPgxMzWKPzjr3oHTp4zehKILdzE2Ysgs=
+  on:
+    tags: true
+    repo: ajenkins-cargometrics/pyflow
