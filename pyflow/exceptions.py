@@ -15,12 +15,17 @@ class WorkflowBlockedException(Exception):
     pass
 
 
-class TimedOutException(PyflowException):
+class InvocationException(PyflowException):
+    """Base class of exceptions related to invocations failing."""
+    pass
+
+
+class InvocationTimedOutException(InvocationException):
     """Exception thrown to indicate a timeout occurred"""
     pass
 
 
-class InvocationFailedException(PyflowException):
+class InvocationFailedException(InvocationException):
     """Exception thrown to indicate an invocation failed"""
     def __init__(self, reason=None, details=None):
         msg = reason or ''
@@ -34,7 +39,7 @@ class InvocationFailedException(PyflowException):
         super(InvocationFailedException, self).__init__(msg)
 
 
-class InvocationCanceledException(PyflowException):
+class InvocationCanceledException(InvocationException):
     """Exception thrown to indicate an invocation was canceled"""
 
     def __init__(self, reason=None, details=None):

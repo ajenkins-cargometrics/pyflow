@@ -22,15 +22,20 @@ with either of those frameworks.
 
 ## Programming Model
 
-### Defining a Workflow
+This page gives a good overview of the concepts used in a pyflow
+application: [AWS Flow Framework Basic Concepts][]. It's
+about [Java Flow][] but the concepts are the same for pyflow.  The
+diagram on that page doesn't mention Lambda functions, but if they
+were added to the diagram, the Lambda service would be another
+activity worker, with Lambda functions being the activity methods.
 
-To define a workflow, you subclass the `pyflow.Workflow` class, and
-implement the `run` method to define the workflow's behavior.  The
-'run' method will be passed two arguments -- a
-`WorkflowInvocationHelper` object which provides the interface for
-interacting with SWF, and an input argument, which is an arbitrary
-value that can be passed to the workflow when invoking it.  Here is an
-example:
+[AWS Flow Framework Basic Concepts]: http://docs.aws.amazon.com/amazonswf/latest/awsflowguide/awsflow-basics-application-structure.html
+
+
+### Implementing a Workflow
+
+To implement a workflow, you subclass the `pyflow.Workflow` class, and
+implement the `run` method to define the workflow's behavior.
 
 ``` python
 import pyflow
@@ -39,45 +44,75 @@ class MyWorkflow(pyflow.Workflow):
     NAME = 'MyWorkflow'
     VERSION = '1.0'
     
-    def run(self, swf, arg):
-        
+    def run(self, swf, input_arg):
+       future1 = swf.invoke_lambda('some_lambda_func', input_arg)
+       
+       x = future1.result() + 2
+       
+       future2 = swf.invoke_lambda('other_lambda_func', x)
+       
+       return future2.result()
 ```
+
+The 'run' method will be passed two arguments.  The `swf` argument is
+a [WorkflowInvocationHelper](./pyflow/workflow_invocation_helper.py)
+object which provides the interface for invoking remote tasks and
+retrieving information about the workflow execution context.  The
+`input_arg` argument is an arbitrary value that can be passed to the
+workflow when invoking it.
+
+The example above demonstrates using the `invoke_lambda` method to
+invoke a lambda function.  There are similar methods for invoking SWF
+activities, and other SWF workflows.  These methods are asynchronous.
+They immediately return a `Future` object, which can be used to
+retrieve the result of the invocation when it is done.  Calling the
+`result()` method on a future "blocks" until the result is ready.  If
+the invocation succeeded, its result will be returned.  If the
+invocation failed, the `result` method will raise an
+`InvocationException`.
+
+Blocking methods such as `Future.result()` don't actually block the
+python process, but rather allow control to transfer back to the
+Workflow Worker process so it can process other SWF events.  I'll
+explain later in this document how the context switching is
+implemented, as well as some rules you need to follow in your workflow
+implementation code as a result of this implementation.
 
 ### Executing a Workflow
 
-To execute the example workflow defined above, use code like this:
+To execute a worklow you need to do two things.  First you need to
+start a Workflow Worker process, which will manage the execution of
+one or more workflow definitions, and then you need to tell SWF to
+invoke a workflow.  Here is how to create a workflow worker with SWF.
 
 ``` python
 domain = 'SWFSampleDomain'
-task_list = 'string-transformer-decider'
+task_list = 'my-workflow-tasklist'
 
-pyflow.ensure_workflow_registered(
-    workflow,
-    domain='SWFSampleDomain')
 
 # Will poll indefinitely for events
-pyflow.poll_for_executions(workflow, domain=domain, task_list=task_list)
+pyflow.poll_for_executions([MyWorkflow()], domain=domain, task_list=task_list,
+    identity='My Workflow Worker')
 ```
 
 Executing the above will first ensure that the workflow type is
 registered with SWF, and then enter an endless loop waiting to receive
 events from the SWF service and executing workflow instances.
 
-Optionally, a `num_iterations` parameter can be passed to
-`poll_for_executions` to make it only perform `num_iterations` polls
+Optionally, a `max_time` parameter can be passed to
+`poll_for_executions` to make it only perform `max_time` seconds
 before returning.  The workflow runner is stateless; execution state
 of workflow instances is maintained by the SWF service.  This means
 it's possible to have `poll_for_executions` process several events,
 then exit the python process and start it again with the same
-arguments, and have it pick up the workflow execution where it left
-off.
+arguments, and have it pick up workflow executions where it left off.
 
 To actually start a workflow instance, you can run code like this:
 
 ``` python
 domain = 'SWFSampleDomain'
-task_list = 'string-transformer-decider'
-workflow_name = 'StringTransformer'
+task_list = 'my-workflow-tasklist'
+workflow_name = 'MyWorkflow'
 workflow_version = '1.0'
 lambda_role='arn:aws:iam::528461152743:role/swf-lambda'
 
@@ -87,7 +122,7 @@ workflow_id = pyflow.start_workflow(
     workflow_version=workflow_version,
     task_list=task_list,
     lambda_role=lambda_role,
-    input='World')
+    input='"Hello"')
 
 print "Workflow started with workflow_id {}".format(workflow_id)
 ```
@@ -97,47 +132,8 @@ Or using the AWS CLI:
 ```
 aws swf start-workflow-execution --domain SWFSampleDomain \
     --workflow-id my-unique-workflow-id \
-    --workflow-type StringTransformer \
+    --workflow-type name=MyWorkflow,version=1.0 \
     --task-list string-transformer-decider \
     --lambda-role arn:aws:iam::528461152743:role/swf-lambda \
-    --input World
+    --input '"Hello"'
 ```
-
-## Task Types
-
-The following types of tasks can be used in a workflow.
-
-**ActivityTask**: Executes a task on any computer that can
-communicate with the SWF service, such as an EC2 machine, or a
-machine outside of AWS. The machine which executes the task will need
-to run an activity worker process which polls the SWF service for
-tasks to run.
-
-**LambdaTask**: Executes an AWS Lambda function.  The lambda
-function's output is the task's output.
-
-**WorkflowTask**: Executes another SWF workflow as a child
-workflow. The child workflow can, but is not required to be, defined
-using pyflow.  This allows composing workflows.  A `WorkflowTask` has
-the same inputs and outputs as an `ActivityTask`.
-  
-**SignalTask**: This task type doesn't actually execute anything, but
-instead waits for a signal from an external source.  This would be
-useful as an alternative to using a LambdaTask or ActivityTask to poll
-for some external condition to be fulfilled, such as a file being
-downloaded.  The external process would need to know the workflow id
-to signal.  I still need to work out the details of how the external
-process would get hold of the workflow id.
-  
-**TimerTask**: This task doesn't actually execute anything or produce
-output.  It is used to pause the workflow for a given amount of time.
-This could be useful if you know that the next task in a workflow
-can't succeed until a certain amount of time has passed.
-  
-**StartTask**: This is a pseudo-task which represents the start of a
-workflow execution.  It exists to make workflow inputs available to
-other tasks. You can think of it as executing at the start of a
-workflow before any other tasks.  Its output is set to any input
-passed to the workflow.  Other tasks can declare the workflow's start
-task as a dependency in order to receive the workflow's input
-parameter as in input.

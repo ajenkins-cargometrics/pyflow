@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class EventHandler(object):
     def __init__(self, decision_helper):
+        """:type decision_helper: dth.DecisionTaskHelper"""
         self.decision_helper = decision_helper
 
     def update_state_from_event(self, event):
@@ -90,8 +91,11 @@ class EventHandler(object):
     def handle_workflow_execution_started(self, event):
         attributes = self.decision_helper.event_attributes(event)
         self.decision_helper.workflow_state.workflow_start_time = event['eventTimestamp']
-        self.decision_helper.workflow_state.input = utils.decode_task_result(attributes.get('input', 'null'))
         self.decision_helper.workflow_state.lambda_role = attributes.get('lambdaRole')
+        try:
+            self.decision_helper.workflow_state.input = utils.decode_task_result(attributes.get('input'))
+        except ValueError as e:
+            self.decision_helper.fail_workflow('Invalid input to workflow', str(e))
         return True
 
     def handle_workflow_execution_timed_out(self, event):
@@ -148,7 +152,12 @@ class EventHandler(object):
 
     def handle_activity_task_completed(self, event):
         attributes = self.decision_helper.event_attributes(event)
-        result = utils.decode_task_result(attributes.get('result'))
+        try:
+            result = utils.decode_task_result(attributes.get('result'))
+        except ValueError as e:
+            return self._handle_state_change(event, ws.InvocationState.FAILED, failure_reason='Decoding result failed',
+                                             failure_details=str(e))
+
         return self._handle_state_change(event, ws.InvocationState.SUCCEEDED, result=result)
 
     def handle_activity_task_canceled(self, event):
@@ -189,7 +198,12 @@ class EventHandler(object):
 
     def handle_child_workflow_execution_completed(self, event):
         attributes = self.decision_helper.event_attributes(event)
-        result = utils.decode_task_result(attributes.get('result'))
+        try:
+            result = utils.decode_task_result(attributes.get('result'))
+        except ValueError as e:
+            return self._handle_state_change(event, ws.InvocationState.FAILED,
+                                             failure_reason='Failed to decode child workflow output',
+                                             failure_details=str(e))
         return self._handle_state_change(event, ws.InvocationState.SUCCEEDED, result=result)
 
     def handle_child_workflow_execution_failed(self, event):
