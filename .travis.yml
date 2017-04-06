@@ -3,7 +3,8 @@ python: 2.7
 sudo: false
 
 install:
-- pip install -e . pytest
+- pip install -e .
+- pip install pytest
 
 script:
 - pytest tests
