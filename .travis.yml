@@ -4,7 +4,7 @@ sudo: false
 
 install:
 - pip install -e .
-- pip install pytest
+- pip install -U pytest
 
 script:
 - pytest tests
