@@ -44,32 +44,36 @@ class MyWorkflow(pyflow.Workflow):
     NAME = 'MyWorkflow'
     VERSION = '1.0'
     
-    def run(self, swf, input_arg):
-       future1 = swf.invoke_lambda('some_lambda_func', input_arg)
+    some_func = pyflow.LambdaDescriptor('some_lambda_func')
+    other_func = pyflow.LambdaDescriptor('other_lambda_func')
+    
+    def run(self, input_arg):
+       future1 = self.some_func(input_arg)
        
        x = future1.result() + 2
        
-       future2 = swf.invoke_lambda('other_lambda_func', x)
+       future2 = self.other_func(x)
        
        return future2.result()
 ```
 
-The 'run' method will be passed two arguments.  The `swf` argument is
+The `input_arg` argument to the `run` method is an arbitrary value
+that can be passed to the workflow when invoking it.  The workflow
+instance has an `swf` attribute, which is
 a [WorkflowInvocationHelper](./pyflow/workflow_invocation_helper.py)
-object which provides the interface for invoking remote tasks and
-retrieving information about the workflow execution context.  The
-`input_arg` argument is an arbitrary value that can be passed to the
-workflow when invoking it.
+object that provides the interface for invoking remote tasks and
+retrieving information about the workflow execution context.
 
-The example above demonstrates using the `invoke_lambda` method to
-invoke a lambda function.  There are similar methods for invoking SWF
-activities, and other SWF workflows.  These methods are asynchronous.
-They immediately return a `Future` object, which can be used to
-retrieve the result of the invocation when it is done.  Calling the
-`result()` method on a future "blocks" until the result is ready.  If
-the invocation succeeded, its result will be returned.  If the
-invocation failed, the `result` method will raise an
-`InvocationException`.
+The example above demonstrates invoking lambda functions.  You first
+define a class attribute for each lambda function you want to invoke,
+and then use it like a method inside the `run` method.  There are
+similar descriptor classes for invoking SWF activities, and other SWF
+workflows.  These methods are asynchronous.  They immediately return a
+`Future` object, which can be used to retrieve the result of the
+invocation when it is done.  Calling the `result()` method on a future
+"blocks" until the result is ready.  If the invocation succeeded, its
+result will be returned.  If the invocation failed, the `result`
+method will raise an `InvocationException`.
 
 Blocking methods such as `Future.result()` don't actually block the
 python process, but rather allow control to transfer back to the

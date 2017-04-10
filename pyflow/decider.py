@@ -302,8 +302,8 @@ class Decider(object):
             'StartLambdaFunctionFailed']
     }
 
-    def __init__(self, workflows, domain, task_list, identity, client=None):
-        self._workflows = {(w.name, w.version): w for w in workflows}
+    def __init__(self, workflow_classes, domain, task_list, identity, client=None):
+        self._workflow_classes = {(w.NAME, w.VERSION): w for w in workflow_classes}
 
         # A dictionary of workflow states, keyed by run_id
         self._workflow_states = {}
@@ -322,9 +322,9 @@ class Decider(object):
         """
         Register all the workflow types passed to the constructor with SWF, if they are not already registered
         """
-        for workflow in self._workflows.values():
-            workflow_type = dict(name=workflow.name, version=workflow.version)
-            options = {k: str(v) for k, v in workflow.options.items()}
+        for workflow_class in self._workflow_classes.values():
+            workflow_type = dict(name=workflow_class.NAME, version=workflow_class.VERSION)
+            options = {k: str(v) for k, v in workflow_class.OPTIONS.items()}
 
             try:
                 self._client.register_workflow_type(
@@ -358,8 +358,8 @@ class Decider(object):
         event_handler = EventHandler(decision_helper)
 
         workflow_type = (decision_helper.workflow_name, decision_helper.workflow_version)
-        workflow = self._workflows.get(workflow_type)
-        if workflow is None:
+        workflow_class = self._workflow_classes.get(workflow_type)
+        if workflow_class is None:
             raise exceptions.DeciderException('Received decision task for unknown workflow type: {!r}'.format(
                 workflow_type))
 
@@ -374,8 +374,9 @@ class Decider(object):
                          or (state_changed and event['eventId'] > decision_helper.previous_started_event_id)):
                 try:
                     is_replaying = event['eventId'] <= decision_helper.previous_started_event_id
-                    result = workflow.run(wih.WorkflowInvocationHelper(decision_helper, is_replaying),
-                                          decision_helper.workflow_state.input)
+                    invocation_helper = wih.WorkflowInvocationHelper(decision_helper, is_replaying)
+                    workflow_obj = workflow_class(invocation_helper)
+                    result = workflow_obj.run(decision_helper.workflow_state.input)
                 except exceptions.WorkflowBlockedException:
                     pass
                 except Exception:

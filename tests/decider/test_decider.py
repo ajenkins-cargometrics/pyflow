@@ -12,36 +12,42 @@ class StringTransformer(pyflow.Workflow):
     NAME = 'StringTransformer'
     VERSION = '1.0'
 
-    def run(self, swf, workflow_input):
+    string_upcase = pyflow.LambdaDescriptor('string_upcase')
+    string_reverse = pyflow.LambdaDescriptor('string_reverse')
+
+    subscribe_topic = pyflow.ActivityDescriptor('subscribe_topic_activity', 'v1', task_list='subscription-activities')
+
+    string_concat = pyflow.ChildWorkflowDescriptor('StringConcatter', '1.0',
+                                                   lambda_role='arn:aws:iam::528461152743:role/swf-lambda')
+
+    def run(self, workflow_input):
         # for loops work.  In this case upcased will contain a list of futures
         upcased = []
         for s in workflow_input:
-            upcased.append(swf.invoke_lambda('string_upcase', s))
+            upcased.append(self.string_upcase(s))
 
         # demonstrate error handling
         try:
             # pass a number where a string is expected
-            swf.invoke_lambda('string_upcase', 42).result()
+            self.string_upcase(42).result()
             assert False, "Shouldn't get to here"
         except pyflow.InvocationFailedException:
             pass
 
         # list comprehensions as well
-        reversed_strs = [swf.invoke_lambda('string_reverse', s.result()) for s in upcased]
+        reversed_strs = [self.string_reverse(s.result()) for s in upcased]
 
         # Sleep for 5 seconds
-        swf.sleep(5)
+        self.swf.sleep(5)
 
         # Wait for all futures to finish before proceeding.  This normally isn't necessary since just calling result()
         # on each future would accomplish the same thing.
-        swf.wait_for_all(reversed_strs)
+        self.swf.wait_for_all(reversed_strs)
 
         # Try invoking an activity
-        subscription = swf.invoke_activity('subscribe_topic_activity', 'v1', {'email': 'john.doe@email.com'},
-                                           task_list='subscription-activities')
+        subscription = self.subscribe_topic({'email': 'john.doe@email.com'})
 
-        concatted = swf.invoke_child_workflow('StringConcatter', '1.0', input_arg=[s.result() for s in reversed_strs],
-                                              lambda_role=swf.lambda_role).result()
+        concatted = self.string_concat([s.result() for s in reversed_strs]).result()
 
         subscription.result()
         return concatted
@@ -51,8 +57,10 @@ class StringConcatter(pyflow.Workflow):
     NAME = 'StringConcatter'
     VERSION = '1.0'
 
-    def run(self, swf, workflow_input):
-        return swf.invoke_lambda('string_concat', workflow_input).result()
+    OPTIONS = {'lambdaRole': 'arn:aws:iam::528461152743:role/swf-lambda'}
+
+    def run(self, workflow_input):
+        return self.swf.invoke_lambda('string_concat', workflow_input).result()
 
 
 @pytest.fixture
@@ -63,7 +71,7 @@ def s3_client():
 
 @pytest.fixture
 def decider(s3_client):
-    return pyflow.Decider([StringTransformer(), StringConcatter()],
+    return pyflow.Decider([StringTransformer, StringConcatter],
                           domain='test-domain', task_list='string-transformer-decider',
                           identity='string transformer decider', client=s3_client)
 
