@@ -51,7 +51,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('lambda')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future()
+        out_fut = future.Future(invocation_id)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.state = ws.InvocationState.HANDLED
@@ -78,7 +78,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('activity')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future()
+        out_fut = future.Future(invocation_id)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.state = ws.InvocationState.HANDLED
@@ -113,7 +113,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('child_workflow')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future()
+        out_fut = future.Future(invocation_id)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.state = ws.InvocationState.HANDLED

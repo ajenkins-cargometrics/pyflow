@@ -166,7 +166,7 @@ class DecisionTaskHelper(object):
             else:
                 # a failure of some type
                 if state == ws.InvocationState.TIMED_OUT:
-                    exception = exceptions.InvocationTimedOutException('Invocation {!r} timed out'.format(
+                    exception = exceptions.InvocationTimedOutException('InvocationStep {!r} timed out'.format(
                         invocation_state.invocation_id))
                 elif state == ws.InvocationState.CANCELED:
                     exception = exceptions.InvocationCanceledException(

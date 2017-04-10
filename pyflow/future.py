@@ -6,10 +6,11 @@ class Future(object):
     Represents the result of an asynchronous invocation.
     """
 
-    def __init__(self):
+    def __init__(self, invocation_id):
         self._done = False
         self._succeeded = False
         self._result = None
+        self._invocation_id = invocation_id
 
     @property
     def done(self):
@@ -33,6 +34,13 @@ class Future(object):
             return self._result
         else:
             return None
+
+    @property
+    def invocation_id(self):
+        """
+        Return the id of the invocation this is waiting for.  Mainly useful for debugging and testing.
+        """
+        return self._invocation_id
 
     def result(self):
         """

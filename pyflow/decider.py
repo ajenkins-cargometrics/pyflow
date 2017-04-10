@@ -1,6 +1,4 @@
-import cPickle
 import logging
-import os
 import re
 import time
 import traceback
@@ -378,13 +376,19 @@ class Decider(object):
                     is_replaying = event['eventId'] <= decision_helper.previous_started_event_id
                     result = workflow.run(wih.WorkflowInvocationHelper(decision_helper, is_replaying),
                                           decision_helper.workflow_state.input)
-                    decision_helper.complete_workflow(result)
                 except exceptions.WorkflowBlockedException:
                     pass
                 except Exception:
                     msg = 'Caught exception from workflow function for workflow {!r}'.format(workflow_type)
                     logger.exception(msg)
                     decision_helper.fail_workflow(msg, traceback.format_exc())
+                else:
+                    try:
+                        decision_helper.complete_workflow(result)
+                    except Exception:
+                        msg = 'Caught exception while processing workflow result for workflow {!r}'.format(workflow_type)
+                        logger.exception(msg)
+                        decision_helper.fail_workflow(msg, traceback.format_exc())
 
         if decision_helper.should_delete:
             del self._workflow_states[decision_helper.run_id]
