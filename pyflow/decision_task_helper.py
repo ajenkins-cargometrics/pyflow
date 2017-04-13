@@ -125,6 +125,9 @@ class DecisionTaskHelper(object):
         if child_policy is not None:
             attributes['childPolicy'] = child_policy
 
+        if lambda_role is None:
+            lambda_role = self.workflow_state.lambda_role
+
         if lambda_role is not None:
             attributes['lambdaRole'] = lambda_role
 

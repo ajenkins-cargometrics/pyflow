@@ -20,7 +20,7 @@ class LambdaDescriptor(object):
             # The lambda function name is a required parameter
             my_function = pyflow.LambdaDescriptor('my_function')
             # Can also optionally specify a timeout
-            other_function = pyflow.LambdaDescript('other_lambda_func', timeout=120)
+            other_function = pyflow.LambdaDescriptor('other_lambda_func', timeout=120)
 
             def run(self, input):
                 # these two calls are equivalent

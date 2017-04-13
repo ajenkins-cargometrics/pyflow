@@ -48,6 +48,9 @@ class MyWorkflow(pyflow.Workflow):
     other_func = pyflow.LambdaDescriptor('other_lambda_func')
     
     def run(self, input_arg):
+       if input_arg == 'bad_input':
+           raise pyflow.WorkflowFailedException('BAD_INPUT', 'Received bad input')
+           
        future1 = self.some_func(input_arg)
        
        x = future1.result() + 2
@@ -81,6 +84,11 @@ Workflow Worker process so it can process other SWF events.  I'll
 explain later in this document how the context switching is
 implemented, as well as some rules you need to follow in your workflow
 implementation code as a result of this implementation.
+
+The code above also demonstrates how to signal a workflow failure.
+Raise the `WorkflowFailedException` with two arguments.  The first is
+a short `reason` string, and the second is a longer `details` string.
+
 
 ### Executing a Workflow
 

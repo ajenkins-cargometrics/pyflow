@@ -15,6 +15,23 @@ class WorkflowBlockedException(Exception):
     pass
 
 
+class WorkflowFailedException(PyflowException):
+    """
+    Exception which can be thrown by a workflow function to explicitly request that the workflow be marked as failed,
+    with a given reason and details string.
+    """
+    def __init__(self, reason, details):
+        super(WorkflowFailedException, self).__init__(reason, details)
+
+    @property
+    def reason(self):
+        return self.args[0]
+
+    @property
+    def details(self):
+        return self.args[1]
+
+
 class InvocationException(PyflowException):
     """Base class of exceptions related to invocations failing."""
     pass
