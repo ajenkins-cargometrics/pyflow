@@ -39,6 +39,13 @@ def list_activity_types(swf, domain):
         'typeInfos')
 
 
+def list_workflow_history(swf, domain, workflow_id, run_id, reverse=False):
+    paginator = swf.get_paginator('get_workflow_execution_history')
+    return iter_collection(
+        paginator.paginate(domain=domain, execution={'workflowId': workflow_id, 'runId': run_id}, reverseOrder=reverse),
+        'events')
+
+
 def poll_for_decision_tasks(swf, domain, task_list, identity):
     paginator = swf.get_paginator('poll_for_decision_task')
     result = None

@@ -5,7 +5,7 @@ def main():
     domain = 'SWFSampleDomain'
     task_list = 'string-transformer-decider'
     workflow_name = 'StringTransformer'
-    workflow_version = '1.0'
+    workflow_version = '1.1'
     lambda_role='arn:aws:iam::528461152743:role/swf-lambda'
 
     execution_info = pyflow.start_workflow(

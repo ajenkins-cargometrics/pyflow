@@ -4,6 +4,7 @@ import time
 import traceback
 import uuid
 
+import attr
 import boto3
 import botocore
 
@@ -12,6 +13,10 @@ from pyflow import exceptions
 from pyflow import utils
 from pyflow import workflow_invocation_helper as wih
 from pyflow import workflow_state as ws
+
+
+__all__ = ['logger', 'Decider', 'get_workflow_status', 'poll_for_executions', 'start_workflow', 'WorkflowStatus']
+
 
 logger = logging.getLogger(__name__)
 
@@ -323,8 +328,9 @@ class Decider(object):
         Register all the workflow types passed to the constructor with SWF, if they are not already registered
         """
         for workflow_class in self._workflow_classes.values():
-            workflow_type = dict(name=workflow_class.NAME, version=workflow_class.VERSION)
-            options = {k: str(v) for k, v in workflow_class.OPTIONS.items()}
+            workflow_obj = workflow_class(None)
+            workflow_type = dict(name=workflow_obj.name, version=workflow_obj.version)
+            options = {k: str(v) for k, v in workflow_obj.options.items()}
 
             try:
                 self._client.register_workflow_type(
@@ -379,6 +385,10 @@ class Decider(object):
                     result = workflow_obj.run(decision_helper.workflow_state.input)
                 except exceptions.WorkflowBlockedException:
                     pass
+                except exceptions.WorkflowFailedException as e:
+                    logger.info('Workflow function threw WorkflowFailedException(reason={!r}, details={!r})'.format(
+                        e.reason, e.details))
+                    decision_helper.fail_workflow(e.reason, e.details)
                 except Exception:
                     msg = 'Caught exception from workflow function for workflow {!r}'.format(workflow_type)
                     logger.exception(msg)
@@ -449,3 +459,74 @@ def start_workflow(domain, workflow_name, workflow_version, task_list, lambda_ro
         lambdaRole=lambda_role)
 
     return {'workflowId': workflow_id, 'runId': response['runId']}
+
+
+@attr.s
+class WorkflowStatus(object):
+    # 'OPEN'|'CLOSED'
+    execution_status = attr.ib()
+
+    # The full response returned from DescribeWorkflowExecution. In most cases the fields below should provide the
+    # information you need, but this object has the full details.
+    workflow_description = attr.ib()
+
+    # Only set if execution_status is CLOSED
+    # 'COMPLETED'|'FAILED'|'CANCELED'|'TERMINATED'|'CONTINUED_AS_NEW'|'TIMED_OUT'
+    close_status = attr.ib(default=None)
+
+    # timestamp of the latest activity for this workflow
+    latest_activity_timestamp = attr.ib(default=None)
+
+    # The result of the workflow, as a string, if workflow status is CLOSED and close_status is COMPLETED
+    result = attr.ib(default=None)
+
+    # The failure reason and details strings, if close_status is FAILED
+    failure_reason = attr.ib(default=None)
+    failure_details = attr.ib(default=None)
+
+    # If execution_status is CLOSED, then this will point to the event describing why the workflow exited.  Normally
+    # information you need can be gotten from other fields.
+    exit_event = attr.ib(default=None)
+
+
+def get_workflow_status(domain, workflow_id, run_id, client=None):
+    """
+    Get the status of a currently running or closed workflow instance.
+
+    :param domain: SWF Domain
+    :param workflow_id: Workflow ID of the workflow instance
+    :param run_id: Run ID of the workflow instance
+    :param client: Boto3 SWF client
+    :return: A WorkflowStatus object
+    """
+
+    if client is None:
+        client = boto3.client('swf')
+
+    description = client.describe_workflow_execution(
+        domain=domain, execution={'workflowId': workflow_id, 'runId': run_id})
+
+    exec_info = description['executionInfo']
+    exec_status = exec_info['executionStatus']
+
+    status = WorkflowStatus(execution_status=exec_status, workflow_description=description,
+                            latest_activity_timestamp=description.get('latestActivityTaskTimestamp'))
+
+    exit_event_types = {'WorkflowExecutionCompleted', 'WorkflowExecutionFailed', 'WorkflowExecutionCanceled',
+                        'WorkflowExecutionTerminated', 'WorkflowExecutionContinuedAsNew', 'WorkflowExecutionTimedOut'}
+
+    if exec_status == 'CLOSED':
+        status.close_status = exec_info['closeStatus']
+
+        for event in utils.list_workflow_history(client, domain, workflow_id, run_id, reverse=True):
+            if event['eventType'] in exit_event_types:
+                status.exit_event = event
+                if event['eventType'] == 'WorkflowExecutionCompleted':
+                    status.result = event['workflowExecutionCompletedEventAttributes']['result']
+                elif event['eventType'] == 'WorkflowExecutionFailed':
+                    attributes = event['workflowExecutionFailedEventAttributes']
+                    status.failure_reason = attributes.get('reason')
+                    status.failure_details = attributes.get('details')
+                break
+
+    return status
