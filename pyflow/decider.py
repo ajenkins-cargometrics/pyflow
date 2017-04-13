@@ -497,14 +497,17 @@ def get_workflow_status(domain, workflow_id, run_id, client=None):
     :param workflow_id: Workflow ID of the workflow instance
     :param run_id: Run ID of the workflow instance
     :param client: Boto3 SWF client
-    :return: A WorkflowStatus object
+    :return: A WorkflowStatus object, or None if no workflow is found matching the workflow id and run id
     """
 
     if client is None:
         client = boto3.client('swf')
 
-    description = client.describe_workflow_execution(
-        domain=domain, execution={'workflowId': workflow_id, 'runId': run_id})
+    try:
+        description = client.describe_workflow_execution(
+            domain=domain, execution={'workflowId': workflow_id, 'runId': run_id})
+    except client.exceptions.UnknownResourceFault:
+        return None
 
     exec_info = description['executionInfo']
     exec_status = exec_info['executionStatus']
@@ -522,7 +525,7 @@ def get_workflow_status(domain, workflow_id, run_id, client=None):
             if event['eventType'] in exit_event_types:
                 status.exit_event = event
                 if event['eventType'] == 'WorkflowExecutionCompleted':
-                    status.result = event['workflowExecutionCompletedEventAttributes']['result']
+                    status.result = event['workflowExecutionCompletedEventAttributes'].get('result')
                 elif event['eventType'] == 'WorkflowExecutionFailed':
                     attributes = event['workflowExecutionFailedEventAttributes']
                     status.failure_reason = attributes.get('reason')
