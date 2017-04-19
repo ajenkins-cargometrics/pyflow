@@ -46,6 +46,10 @@ class DecisionTaskHelper(object):
         return self._decision_task['previousStartedEventId']
 
     @property
+    def started_event_id(self):
+        return self._decision_task['startedEventId']
+
+    @property
     def decision_task(self):
         return self._decision_task
 

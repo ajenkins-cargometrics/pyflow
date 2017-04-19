@@ -369,15 +369,19 @@ class Decider(object):
             raise exceptions.DeciderException('Received decision task for unknown workflow type: {!r}'.format(
                 workflow_type))
 
+        state_changed = False
+
         for event in [e for e in decision_helper.events
                       if e['eventId'] > decision_helper.workflow_state.last_seen_event_id]:
             logger.debug('Processing event %r', event)
 
-            state_changed = event_handler.update_state_from_event(event)
+            state_changed = event_handler.update_state_from_event(event) or state_changed
 
             if not decision_helper.workflow_state.completed \
                     and (event['eventId'] == decision_helper.previous_started_event_id
-                         or (state_changed and event['eventId'] > decision_helper.previous_started_event_id)):
+                         or (state_changed and event['eventId'] == decision_helper.started_event_id)):
+                state_changed = False
+
                 try:
                     is_replaying = event['eventId'] <= decision_helper.previous_started_event_id
                     invocation_helper = wih.WorkflowInvocationHelper(decision_helper, is_replaying)
