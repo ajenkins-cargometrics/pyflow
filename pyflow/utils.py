@@ -1,5 +1,10 @@
 import json
+import logging
 import uuid
+
+
+# logger used for internal pyflow logging
+logger = logging.getLogger('pyflow')
 
 
 def encode_task_input(input_obj):

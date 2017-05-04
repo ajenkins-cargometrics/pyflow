@@ -7,7 +7,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md')) as f:
 
 setup(
     name='pyflow-swf',
-    version='1.2.1',
+    version='1.3.0',
     author='Adam Jenkins',
     author_email='adam@thejenkins.org',
     license='MIT',

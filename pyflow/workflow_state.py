@@ -21,8 +21,6 @@ class InvocationState(object):
 
     state = attr.ib(default=NOT_STARTED)
 
-    events = attr.ib(default=attr.Factory(list))
-
     result = attr.ib(default=None)
 
     failure_reason = attr.ib(default=None)
@@ -32,8 +30,7 @@ class InvocationState(object):
     def done(self):
         return self.state in self.DONE_STATES
 
-    def update_state(self, event, state=None, result=None, failure_reason=None, failure_details=None):
-        self.events.append(event)
+    def update_state(self, state=None, result=None, failure_reason=None, failure_details=None):
         if state is not None:
             self.state = state
         if result is not None:

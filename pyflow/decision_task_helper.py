@@ -1,6 +1,7 @@
 from pyflow import exceptions
 from pyflow import utils
 from pyflow import workflow_state as ws
+from pyflow import event_handler as eh
 
 
 class DecisionTaskHelper(object):
@@ -13,9 +14,14 @@ class DecisionTaskHelper(object):
         :type workflow_state: ws.WorkflowState
         """
         self._decision_task = decision_task
+        self._event_handler = eh.EventHandler(self)
+
         self.workflow_state = workflow_state
         self.decisions = []
-        self.should_delete = False
+        self.is_replaying = False
+
+        # Index into the events list of the decision task of the last event processed by process_next_decision_task
+        self._last_event_idx = -1
 
     @property
     def run_id(self):
@@ -55,6 +61,23 @@ class DecisionTaskHelper(object):
 
     def is_replay_event(self, event):
         return event['eventId'] <= self.previous_started_event_id
+
+    def process_next_decision_task(self):
+        """
+        Process events from the current decision task until encountering a DecisionTaskStarted event or end of the
+        event list.
+
+        :return: The last event processed, or None if there are no more events to process
+        """
+        event = None
+        for self._last_event_idx in range(self._last_event_idx + 1, len(self.events)):
+            event = self.events[self._last_event_idx]
+            self.is_replaying = event['eventId'] <= self.previous_started_event_id
+            self._event_handler.update_state_from_event(event)
+            if event['eventType'] == 'DecisionTaskStarted':
+                break
+
+        return event
 
     def schedule_lambda_invocation(self, invocation_id, function_name, input_arg, timeout=None):
         """
@@ -181,6 +204,8 @@ class DecisionTaskHelper(object):
                 elif state == ws.InvocationState.FAILED:
                     exception = exceptions.InvocationFailedException(
                         invocation_state.failure_reason, invocation_state.failure_details)
+                else:
+                    exception = exceptions.DeciderException('Unexpected done state: {!r}'.format(state))
 
                 result_future.set_exception(exception)
 
@@ -191,7 +216,6 @@ class DecisionTaskHelper(object):
         :param result: The value to set as the result of the workflow
         """
         self.workflow_state.completed = True
-        self.should_delete = True
         self.decisions.append({
             'decisionType': 'CompleteWorkflowExecution',
             'completeWorkflowExecutionDecisionAttributes': {
@@ -207,7 +231,6 @@ class DecisionTaskHelper(object):
         :param details: A longer description of the failure
         """
         self.workflow_state.completed = True
-        self.should_delete = True
         self.decisions.append({
             'decisionType': 'FailWorkflowExecution',
             'failWorkflowExecutionDecisionAttributes': {
@@ -218,7 +241,6 @@ class DecisionTaskHelper(object):
 
     def cancel_workflow(self, details):
         self.workflow_state.completed = True
-        self.should_delete = True
         attributes = {}
         if details is not None:
             attributes['details'] = details

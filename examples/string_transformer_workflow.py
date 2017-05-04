@@ -57,7 +57,7 @@ class StringConcatter(pyflow.Workflow):
 
 def main():
     logging.basicConfig()
-    pyflow.decider.logger.setLevel(logging.DEBUG)
+    pyflow.logger.setLevel(logging.DEBUG)
 
     workflows = [StringTransformer, StringConcatter]
     domain = 'SWFSampleDomain'

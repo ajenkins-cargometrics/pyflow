@@ -13,14 +13,12 @@ class WorkflowInvocationHelper(object):
     Provides the interface and functionality that workflow functions use to interact with the decider.
     """
 
-    def __init__(self, decision_helper, is_replaying):
+    def __init__(self, decision_helper):
         self._workflow_state = decision_helper.workflow_state
         ":type: pyflow.workflow_state.WorkflowState"
 
         self._decision_helper = decision_helper
         ":type: pyflow.decision_task_helper.DecisionTaskHelper"
-
-        self._is_replaying = is_replaying
 
         self._invocation_counters = {}
 
@@ -51,15 +49,13 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('lambda')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_id)
+        out_fut = future.Future(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
-            invocation_state.state = ws.InvocationState.HANDLED
+            invocation_state.update_state(ws.InvocationState.HANDLED)
 
-            if not self._is_replaying:
+            if not self._decision_helper.is_replaying:
                 self._decision_helper.schedule_lambda_invocation(invocation_id, function_name, input_arg, timeout)
-        elif invocation_state.done:
-            self._decision_helper.set_invocation_result(invocation_state, out_fut)
 
         return out_fut
 
@@ -78,16 +74,14 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('activity')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_id)
+        out_fut = future.Future(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
-            invocation_state.state = ws.InvocationState.HANDLED
+            invocation_state.update_state(ws.InvocationState.HANDLED)
 
-            if not self._is_replaying:
+            if not self._decision_helper.is_replaying:
                 self._decision_helper.schedule_activity_invocation(invocation_id, name, version, input_arg,
                                                                    timeout=timeout, task_list=task_list)
-        elif invocation_state.done:
-            self._decision_helper.set_invocation_result(invocation_state, out_fut)
 
         return out_fut
 
@@ -113,18 +107,34 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('child_workflow')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_id)
+        out_fut = future.Future(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
-            invocation_state.state = ws.InvocationState.HANDLED
+            invocation_state.update_state(ws.InvocationState.HANDLED)
 
-            if not self._is_replaying:
+            if not self._decision_helper.is_replaying:
                 self._decision_helper.schedule_child_workflow_invocation(
                     invocation_id, name, version, input_arg=input_arg, child_policy=child_policy,
                     lambda_role=lambda_role, task_list=task_list,
                     execution_start_to_close_timeout=execution_start_to_close_timeout)
-        elif invocation_state.done:
-            self._decision_helper.set_invocation_result(invocation_state, out_fut)
+
+        return out_fut
+
+    def start_timer(self, seconds):
+        """Returns a Future which will be done in the given number of seconds.
+
+        :param seconds: Number of seconds until timer will be done
+        :return: A Future which yields None when the timer is done.
+        """
+        invocation_id = self._next_invocation_id('sleep')
+        invocation_state = self._workflow_state.get_invocation_state(invocation_id)
+        out_fut = future.Future(invocation_state, self._decision_helper)
+
+        if invocation_state.state == ws.InvocationState.NOT_STARTED:
+            invocation_state.update_state(ws.InvocationState.HANDLED)
+
+            if not self._decision_helper.is_replaying:
+                self._decision_helper.start_timer(invocation_id, seconds)
 
         return out_fut
 
@@ -134,28 +144,37 @@ class WorkflowInvocationHelper(object):
 
         :param seconds: Number of seconds to sleep
         """
-        invocation_id = self._next_invocation_id('sleep')
-        invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-
-        if invocation_state.state == ws.InvocationState.NOT_STARTED:
-            invocation_state.state = ws.InvocationState.HANDLED
-
-            if not self._is_replaying:
-                self._decision_helper.start_timer(invocation_id, seconds)
-            raise exceptions.WorkflowBlockedException()
-        elif invocation_state.done:
-            if invocation_state.state == ws.InvocationState.CANCELED:
-                raise exceptions.InvocationCanceledException(invocation_id)
-            elif invocation_state.state != ws.InvocationState.SUCCEEDED:
-                raise exceptions.InvocationFailedException(invocation_id)
-        else:
-            raise exceptions.WorkflowBlockedException()
+        return self.start_timer(seconds).result()
 
     def wait_for_all(self, *futures):
         """
         Waits for all the futures to be done.
 
         :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
+        :return: A list containing the input futures, in the order that they finished.
+        """
+        return self._wait_for_condition(lambda fs: all(f.done for f in fs), *futures)
+
+    def wait_for_any(self, *futures):
+        """
+        Waits for any of the futures to be done.
+
+        :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
+        :return: A list containing the futures that finished, in the order that they finished.
+        """
+        return self._wait_for_condition(lambda fs: any(f.done for f in fs), *futures)
+
+    def _wait_for_condition(self, predicate, *futures):
+        """
+        Waits for a condition to become true on a list of predicates.  This is a helper for wait_for_all and
+        wait_for_any.
+
+        :param predicate: A callable which will be called with the input list of futures before each round of
+          event processing.  It should return true when the condition is satisfied which should cause the function to
+          return.
+        :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
+        :return: A list of the input futures which were done when the predicate returned True, in the order that they
+          finished.
         """
         if any(isinstance(f, list) for f in futures):
             flattened = []
@@ -166,8 +185,15 @@ class WorkflowInvocationHelper(object):
                     flattened.append(f)
             futures = flattened
 
-        if not all(f.done for f in futures):
-            raise exceptions.WorkflowBlockedException()
+        not_done = list(futures)
+        done = []
+        while True:
+            done.extend(f for f in not_done if f.done)
+            not_done = [f for f in not_done if not f.done]
+            if predicate(futures):
+                return done
+            elif self._decision_helper.process_next_decision_task() is None:
+                raise exceptions.WorkflowBlockedException()
 
     def _next_invocation_id(self, prefix):
         """

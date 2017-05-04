@@ -103,7 +103,7 @@ task_list = 'my-workflow-tasklist'
 
 
 # Will poll indefinitely for events
-pyflow.poll_for_executions([MyWorkflow()], domain=domain, task_list=task_list,
+pyflow.poll_for_executions([MyWorkflow], domain=domain, task_list=task_list,
     identity='My Workflow Worker')
 ```
 

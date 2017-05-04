@@ -1,3 +1,5 @@
+import logging
+
 import attr
 import boto3
 import botocore.stub
@@ -6,6 +8,15 @@ import pytest
 import decision_tasks
 import pyflow
 from pyflow import workflow_state as ws
+
+
+@pytest.fixture
+def initialize_logging():
+    logging.basicConfig()
+    pyflow.logger.setLevel(logging.INFO)
+
+
+pytestmark = pytest.mark.usefixtures('initialize_logging')
 
 
 class StringTransformer(pyflow.Workflow):
