@@ -1,6 +1,18 @@
+import traceback
+
 from pyflow import exceptions
 from pyflow import future
 from pyflow import workflow_state as ws
+
+
+class InvokeOnceFuture(future.WrappedFuture):
+    """A Future subclass returned by invoke_once"""
+    def result(self):
+        base_result = super(InvokeOnceFuture, self).result()
+        if base_result['succeeded']:
+            return base_result['result']
+        else:
+            raise exceptions.InvocationFailedException(base_result['reason'], base_result['details'])
 
 
 class WorkflowInvocationHelper(object):
@@ -54,7 +66,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('lambda')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_state, self._decision_helper)
+        out_fut = future.InvocationFuture(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.update_state(ws.InvocationState.HANDLED)
@@ -79,7 +91,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('activity')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_state, self._decision_helper)
+        out_fut = future.InvocationFuture(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.update_state(ws.InvocationState.HANDLED)
@@ -112,7 +124,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('child_workflow')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_state, self._decision_helper)
+        out_fut = future.InvocationFuture(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.update_state(ws.InvocationState.HANDLED)
@@ -125,6 +137,29 @@ class WorkflowInvocationHelper(object):
 
         return out_fut
 
+    def invoke_once(self, callable, *args, **kwargs):
+        invocation_id = self._next_invocation_id('invoke_once')
+        invocation_state = self._workflow_state.get_invocation_state(invocation_id)
+        marker_fut = future.InvocationFuture(invocation_state, self._decision_helper)
+        out_fut = InvokeOnceFuture(marker_fut)
+
+        if invocation_state.state == ws.InvocationState.NOT_STARTED:
+            invocation_state.update_state(ws.InvocationState.HANDLED)
+
+            if not self._decision_helper.is_replaying:
+                try:
+                    result = callable(*args, **kwargs)
+                except Exception:
+                    marker_val = {'succeeded': False,
+                                  'reason': 'Exception raised while invoking callable',
+                                  'details': traceback.format_exc()}
+                else:
+                    marker_val = {'succeeded': True, 'result': result}
+
+                self._decision_helper.set_marker(invocation_id, marker_val)
+
+        return out_fut
+
     def start_timer(self, seconds):
         """Returns a Future which will be done in the given number of seconds.
 
@@ -133,7 +168,7 @@ class WorkflowInvocationHelper(object):
         """
         invocation_id = self._next_invocation_id('sleep')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
-        out_fut = future.Future(invocation_state, self._decision_helper)
+        out_fut = future.InvocationFuture(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.update_state(ws.InvocationState.HANDLED)

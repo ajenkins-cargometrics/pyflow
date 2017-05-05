@@ -177,6 +177,15 @@ class DecisionTaskHelper(object):
             }
         })
 
+    def set_marker(self, invocation_id, value):
+        self.decisions.append({
+            'decisionType': 'RecordMarker',
+            'recordMarkerDecisionAttributes': {
+                'markerName': invocation_id,
+                'details': utils.encode_task_input(value)
+            }
+        })
+
     def complete_workflow(self, result):
         """
         Schedule a CompleteWorkflow decision to indicate the workflow successfully completed
@@ -227,7 +236,8 @@ class DecisionTaskHelper(object):
         return attributes.get('id',
                               attributes.get('activityId',
                                              attributes.get('timerId',
-                                                            attributes.get('workflowId'))))
+                                                            attributes.get('workflowId',
+                                                                           attributes.get('markerName')))))
 
     @staticmethod
     def event_attributes(event):

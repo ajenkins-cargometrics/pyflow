@@ -2,6 +2,8 @@
 
 * Added `timed_wait_for_all` and `timed_wait_for_any`, which raise a `WaitTimedOutException` if the requested condition
   isn't satisfied after a given time.
+* Added `invoke_once` method, to support invoking a callable only once in a workflow, but propagate the result to 
+  other decider instances.
 
 # 1.3.0
 

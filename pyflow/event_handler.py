@@ -289,3 +289,19 @@ class EventHandler(object):
         attributes = self.decision_helper.event_attributes(event)
         return self._handle_state_change(event, ws.InvocationState.FAILED,
                                          failure_reason=attributes.get('cause'))
+
+    # marker event handlers
+
+    def handle_marker_recorded(self, event):
+        attributes = self.decision_helper.event_attributes(event)
+        try:
+            result = utils.decode_task_result(attributes.get('details'))
+        except ValueError as e:
+            return self._handle_state_change(event, ws.InvocationState.FAILED,
+                                             failure_reason='Failed to decode marker value',
+                                             failure_details=str(e))
+        return self._handle_state_change(event, ws.InvocationState.SUCCEEDED, result=result)
+
+    def handle_record_marker_failed(self, event):
+        attributes = self.decision_helper.event_attributes(event)
+        return self._handle_state_change(event, ws.InvocationState.FAILED, failure_reason=attributes['cause'])

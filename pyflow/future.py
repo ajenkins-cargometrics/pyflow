@@ -3,6 +3,28 @@ from pyflow import workflow_state as ws
 
 
 class Future(object):
+    """Abstract base class of Futures"""
+    @property
+    def done(self):
+        raise NotImplementedError()
+
+    @property
+    def succeeded(self):
+        raise NotImplementedError()
+
+    @property
+    def failed(self):
+        raise NotImplementedError()
+
+    @property
+    def exception(self):
+        raise NotImplementedError()
+
+    def result(self):
+        raise NotImplementedError()
+
+
+class InvocationFuture(Future):
     """
     Represents the result of an asynchronous invocation.
     """
@@ -68,3 +90,37 @@ class Future(object):
 
             if self._decision_helper.process_next_decision_task() is None:
                 raise exceptions.WorkflowBlockedException()
+
+
+class WrappedFuture(Future):
+    """
+    An instance of this class wraps another future and delegates all methods to the wrapped future.  Subclasses of
+    this class can override any method to change its behavior.
+    """
+
+    def __init__(self, base_future):
+        """
+        Wrap another future.
+
+        :param base_future: The Future to wrap
+        """
+        self._base = base_future
+
+    @property
+    def done(self):
+        return self._base.done
+
+    @property
+    def failed(self):
+        return self._base.failed
+
+    @property
+    def succeeded(self):
+        return self._base.succeeded
+
+    def result(self):
+        return self._base.result()
+
+    @property
+    def exception(self):
+        return self._base.exception
