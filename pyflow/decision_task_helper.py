@@ -1,7 +1,6 @@
-from pyflow import exceptions
+from pyflow import event_handler as eh
 from pyflow import utils
 from pyflow import workflow_state as ws
-from pyflow import event_handler as eh
 
 
 class DecisionTaskHelper(object):
@@ -177,37 +176,6 @@ class DecisionTaskHelper(object):
                 'timerId': invocation_id
             }
         })
-
-    @staticmethod
-    def set_invocation_result(invocation_state, result_future):
-        """
-        Set a future to contain the result of a completed invocation.
-
-        :param invocation_state: The InvocationState of the completed invocation
-        :type invocation_state: pyflow.workflow_state.InvocationState
-        :param result_future: The future to set
-        :type result_future: pyflow.future.Future
-        """
-
-        if invocation_state.done:
-            state = invocation_state.state
-            if state == ws.InvocationState.SUCCEEDED:
-                result_future.set_result(invocation_state.result)
-            else:
-                # a failure of some type
-                if state == ws.InvocationState.TIMED_OUT:
-                    exception = exceptions.InvocationTimedOutException('InvocationStep {!r} timed out'.format(
-                        invocation_state.invocation_id))
-                elif state == ws.InvocationState.CANCELED:
-                    exception = exceptions.InvocationCanceledException(
-                        invocation_state.failure_reason, invocation_state.failure_details)
-                elif state == ws.InvocationState.FAILED:
-                    exception = exceptions.InvocationFailedException(
-                        invocation_state.failure_reason, invocation_state.failure_details)
-                else:
-                    exception = exceptions.DeciderException('Unexpected done state: {!r}'.format(state))
-
-                result_future.set_exception(exception)
 
     def complete_workflow(self, result):
         """

@@ -33,13 +33,18 @@ class StringTransformer(pyflow.Workflow):
         # Sleep for 5 seconds
         self.swf.sleep(5)
 
-        # Wait for all futures to finish before proceeding.  This normally isn't necessary since just calling result()
-        # on each future would accomplish the same thing.
-        self.swf.wait_for_all(reversed_strs)
+        timer = self.swf.start_timer(5)
 
-        subscribed = self.swf.invoke_activity('subscribe_topic_activity', 'v1', {'email': 'john.doe@email.com'},
-                                              task_list='subscription-activities')
-        print "Subscription info: {}".format(subscribed.result())
+        # wait with timeout, intentionally triggering a timeout.
+        try:
+            self.swf.timed_wait_for_all(1, timer, reversed_strs)
+        except pyflow.WaitTimedOutException:
+            pass
+        else:
+            assert False, "Timeout didn't happen"
+
+        # Wait for all futures to finish before proceeding
+        self.swf.wait_for_all(reversed_strs)
 
         concatted = self.string_concat([s.result() for s in reversed_strs])
 

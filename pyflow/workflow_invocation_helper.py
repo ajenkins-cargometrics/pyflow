@@ -37,6 +37,11 @@ class WorkflowInvocationHelper(object):
         """The lambdaRole of the currently running workflow"""
         return self._workflow_state.lambda_role
 
+    @property
+    def is_replaying(self):
+        """True if the current statement is being replayed"""
+        return self._decision_helper.is_replaying
+
     def invoke_lambda(self, function_name, input_arg, timeout=None):
         """
         Schedule a lambda invocation
@@ -164,6 +169,28 @@ class WorkflowInvocationHelper(object):
         """
         return self._wait_for_condition(lambda fs: any(f.done for f in fs), *futures)
 
+    def timed_wait_for_all(self, timeout, *futures):
+        """
+        Wait for all futures to be done, with a timeout.
+
+        :param timeout: Timeout in seconds to wait
+        :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
+        :return: A list containing the futures that finished, in the order that they finished.
+        :raises WaitTimedOutException: If all futures are not done within timeout seconds.
+        """
+        return self._timed_wait_for_condition(lambda fs: all(f.done for f in fs), timeout, *futures)
+
+    def timed_wait_for_any(self, timeout, *futures):
+        """
+        Wait for any futures to be done, with a timeout.
+
+        :param timeout: Timeout in seconds to wait
+        :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
+        :return: A list containing the futures that finished, in the order that they finished.
+        :raises WaitTimedOutException: If no futures are done within timeout seconds.
+        """
+        return self._timed_wait_for_condition(lambda fs: any(f.done for f in fs), timeout, *futures)
+
     def _wait_for_condition(self, predicate, *futures):
         """
         Waits for a condition to become true on a list of predicates.  This is a helper for wait_for_all and
@@ -194,6 +221,25 @@ class WorkflowInvocationHelper(object):
                 return done
             elif self._decision_helper.process_next_decision_task() is None:
                 raise exceptions.WorkflowBlockedException()
+
+    def _timed_wait_for_condition(self, predicate, timeout, *futures):
+        """
+        Waits for a condition to become true on a list of predicates, with a timeout.
+
+        :param predicate: Same meaning as for _wait_for_condition
+        :param timeout: Timeout in seconds to wait
+        :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
+        :return: A list containing the futures that finished, in the order that they finished.
+        :raises WaitTimedOutException: If no futures are done within timeout seconds.
+        """
+        timeout_fut = self.start_timer(timeout)
+
+        done_futures = self._wait_for_condition(lambda futs: predicate(futs) or timeout_fut.done,
+                                                *futures)
+        if predicate(futures):
+            return done_futures
+        else:
+            raise exceptions.WaitTimedOutException()
 
     def _next_invocation_id(self, prefix):
         """

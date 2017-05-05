@@ -69,3 +69,8 @@ class InvocationCanceledException(InvocationException):
                 msg = details
 
         super(InvocationFailedException, self).__init__(msg)
+
+
+class WaitTimedOutException(PyflowException):
+    """Exception thrown to indicate a timeout occurred while waiting for a result"""
+    pass

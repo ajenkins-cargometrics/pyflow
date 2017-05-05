@@ -89,6 +89,7 @@ class EventHandler(object):
         :param event: A workflow event object
         :return: True if any invocation state changed from a not-done state to a done-state.
         """
+        logger.debug('Processing event %r', event)
         self.decision_helper.workflow_state.last_seen_event_id = event['eventId']
 
         event_type = event['eventType']
