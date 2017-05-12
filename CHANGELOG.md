@@ -1,3 +1,6 @@
+# 1.4.1
+* Fixed problem with `invoke_once` hanging.
+
 # 1.4.0
 
 * Added `timed_wait_for_all` and `timed_wait_for_any`, which raise a `WaitTimedOutException` if the requested condition

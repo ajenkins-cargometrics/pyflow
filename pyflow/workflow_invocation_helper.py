@@ -139,6 +139,7 @@ class WorkflowInvocationHelper(object):
 
     def invoke_once(self, callable, *args, **kwargs):
         invocation_id = self._next_invocation_id('invoke_once')
+        signal_id = self._next_invocation_id('invoke_once_signal')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
         marker_fut = future.InvocationFuture(invocation_state, self._decision_helper)
         out_fut = InvokeOnceFuture(marker_fut)
@@ -157,6 +158,8 @@ class WorkflowInvocationHelper(object):
                     marker_val = {'succeeded': True, 'result': result}
 
                 self._decision_helper.set_marker(invocation_id, marker_val)
+                self._decision_helper.schedule_signal(signal_id, self._decision_helper.workflow_id,
+                                                      run_id=self._decision_helper.run_id)
 
         return out_fut
 

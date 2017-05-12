@@ -145,7 +145,7 @@ Or using the AWS CLI:
 aws swf start-workflow-execution --domain SWFSampleDomain \
     --workflow-id my-unique-workflow-id \
     --workflow-type name=MyWorkflow,version=1.0 \
-    --task-list string-transformer-decider \
+    --task-list name=string-transformer-decider \
     --lambda-role arn:aws:iam::528461152743:role/swf-lambda \
     --input '"Hello"'
 ```

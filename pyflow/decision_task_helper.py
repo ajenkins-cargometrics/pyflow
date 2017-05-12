@@ -186,6 +186,26 @@ class DecisionTaskHelper(object):
             }
         })
 
+    def schedule_signal(self, invocation_id, workflow_id, input_arg=None,  run_id=None, control=None):
+        attributes = {
+            'signalName': invocation_id,
+            'workflowId': workflow_id
+        }
+
+        if input_arg is not None:
+            attributes['input'] = utils.encode_task_input(input_arg)
+
+        if run_id is not None:
+            attributes['runId'] = run_id
+
+        if control is not None:
+            attributes['control'] = control
+
+        self.decisions.append({
+            'decisionType': 'SignalExternalWorkflowExecution',
+            'signalExternalWorkflowExecutionDecisionAttributes': attributes
+        })
+
     def complete_workflow(self, result):
         """
         Schedule a CompleteWorkflow decision to indicate the workflow successfully completed
@@ -233,11 +253,12 @@ class DecisionTaskHelper(object):
         :return: The invocation id, or None if not found
         """
         attributes = self.root_event_attributes(event)
-        return attributes.get('id',
-                              attributes.get('activityId',
-                                             attributes.get('timerId',
-                                                            attributes.get('workflowId',
-                                                                           attributes.get('markerName')))))
+        candidate_keys = ['id', 'activityId', 'timerId', 'workflowId', 'markerName', 'signalName']
+        for key in candidate_keys:
+            if key in attributes:
+                return attributes[key]
+
+        return None
 
     @staticmethod
     def event_attributes(event):
