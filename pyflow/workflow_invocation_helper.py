@@ -231,7 +231,7 @@ class WorkflowInvocationHelper(object):
 
     def _wait_for_condition(self, predicate, *futures):
         """
-        Waits for a condition to become true on a list of predicates.  This is a helper for wait_for_all and
+        Waits for a condition to become true on a list of futures.  This is a helper for wait_for_all and
         wait_for_any.
 
         :param predicate: A callable which will be called with the input list of futures before each round of

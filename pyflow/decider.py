@@ -16,6 +16,10 @@ from pyflow.utils import logger
 __all__ = ['Decider', 'get_workflow_status', 'poll_for_executions', 'start_workflow', 'WorkflowStatus']
 
 
+dashboard_url_template = 'https://{region}.console.aws.amazon.com/swf/home?region={region}#' \
+                         'execution_summary:domain={domain};workflowId={workflow_id};runId={run_id}'
+
+
 class Decider(object):
     def __init__(self, workflow_classes, domain, task_list, identity, client=None):
         self._workflow_classes = {(w.NAME, w.VERSION): w for w in workflow_classes}
@@ -66,6 +70,14 @@ class Decider(object):
         workflow_state = ws.WorkflowState(workflow_id=workflow_id, run_id=run_id)
 
         decision_helper = dth.DecisionTaskHelper(decision_task, workflow_state)
+
+        if decision_helper.previous_started_event_id == 0:
+            dashboard_url = dashboard_url_template.format(region=boto3.Session().region_name, domain=self._domain,
+                                                          workflow_id=workflow_id, run_id=run_id)
+            logger.info('Starting instance of workflow {}: {}'.format(
+                {'name': decision_helper.workflow_name, 'version': decision_helper.workflow_version},
+                {'workflow_id': decision_helper.workflow_id, 'run_id': decision_helper.run_id}))
+            logger.info('Dashboard URL: {}'.format(dashboard_url))
 
         try:
             workflow_type = (decision_helper.workflow_name, decision_helper.workflow_version)
