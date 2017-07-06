@@ -18,6 +18,7 @@ class DecisionTaskHelper(object):
         self.workflow_state = workflow_state
         self.decisions = []
         self.is_replaying = False
+        self.last_event_timestamp = None
 
         # Index into the events list of the decision task of the last event processed by process_next_decision_task
         self._last_event_idx = -1
@@ -72,6 +73,7 @@ class DecisionTaskHelper(object):
         for self._last_event_idx in range(self._last_event_idx + 1, len(self.events)):
             event = self.events[self._last_event_idx]
             self.is_replaying = event['eventId'] <= self.previous_started_event_id
+            self.last_event_timestamp = event['eventTimestamp']
             self._event_handler.update_state_from_event(event)
             if event['eventType'] == 'DecisionTaskStarted':
                 break
@@ -232,7 +234,7 @@ class DecisionTaskHelper(object):
             'decisionType': 'FailWorkflowExecution',
             'failWorkflowExecutionDecisionAttributes': {
                 'reason': reason,
-                'details': details
+                'details': details[:32768]
             }
         })
 

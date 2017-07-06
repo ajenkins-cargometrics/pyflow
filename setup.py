@@ -7,7 +7,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.md')) as f:
 
 setup(
     name='pyflow-swf',
-    version='1.4.2',
+    version='1.5.0',
     author='Adam Jenkins',
     author_email='adam@thejenkins.org',
     license='MIT',
@@ -26,7 +26,8 @@ setup(
     long_description=long_description,
     install_requires=[
         'boto3',
-        'attrs'
+        'attrs',
+        'python-dateutil'
     ],
     setup_requires=['pytest-runner'],
     tests_require=[

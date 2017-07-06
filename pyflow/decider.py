@@ -140,9 +140,19 @@ class Decider(object):
 
             decision_helper = self.process_decision_task(decision_task)
 
-            self._client.respond_decision_task_completed(
-                taskToken=decision_helper.task_token,
-                decisions=decision_helper.decisions)
+            try:
+                self._client.respond_decision_task_completed(
+                    taskToken=decision_helper.task_token,
+                    decisions=decision_helper.decisions)
+            except Exception:
+                logger.exception('respond_decision_task_completed failed')
+
+                # Assume it failed due to a bad decision object.  Clear decisions list and fail the workflow
+                decision_helper.decisions = []
+                decision_helper.fail_workflow('respond_decision_task_completed failed', traceback.format_exc())
+                self._client.respond_decision_task_completed(
+                    taskToken=decision_helper.task_token,
+                    decisions=decision_helper.decisions)
 
 
 def poll_for_executions(workflows, domain, task_list, identity, max_time=None):

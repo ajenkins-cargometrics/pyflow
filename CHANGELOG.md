@@ -1,3 +1,7 @@
+# 1.5.0
+* Added `workflow_time()` method that returns a consistent datetime.
+* Fixed a problem where too large lambda input would cause decider to crash
+
 # 1.4.1
 * Fixed problem with `invoke_once` hanging.
 

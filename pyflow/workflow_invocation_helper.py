@@ -1,5 +1,7 @@
 import traceback
 
+import dateutil.tz
+
 from pyflow import exceptions
 from pyflow import future
 from pyflow import workflow_state as ws
@@ -53,6 +55,10 @@ class WorkflowInvocationHelper(object):
     def is_replaying(self):
         """True if the current statement is being replayed"""
         return self._decision_helper.is_replaying
+
+    def workflow_time(self):
+        """Return the current time according to the workflow clock"""
+        return self._decision_helper.last_event_timestamp.astimezone(dateutil.tz.tzutc())
 
     def invoke_lambda(self, function_name, input_arg, timeout=None):
         """
@@ -138,6 +144,21 @@ class WorkflowInvocationHelper(object):
         return out_fut
 
     def invoke_once(self, callable, *args, **kwargs):
+        """
+        Invoke a python callable asynchronously, ensuring it is only invoked once in a workflow invocation.
+
+        The result of the invocation will be propagated across replays of the workflow.  Using invoke_once provides
+        similar behavior to if you turned callable into a lambda and invoked it with invoke_lambda, except that the
+        callable is executed locally in the decider.  This can be useful because the function is too
+        trivial to be worth deploying as a lambda, or because you want to pass input arguments to it that can't be
+        serialized as JSON.
+
+        :param callable: A python callable
+        :param args: positional arguments to pass to callable
+        :param kwargs: keyword arguments to pass to callable
+        :return: A Future which yields the result of invoking callable.  Both error and normal return values will be
+          preserved.
+        """
         invocation_id = self._next_invocation_id('invoke_once')
         signal_id = self._next_invocation_id('invoke_once_signal')
         invocation_state = self._workflow_state.get_invocation_state(invocation_id)
