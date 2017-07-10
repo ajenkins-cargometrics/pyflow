@@ -1,3 +1,6 @@
+# 1.6.0
+* Added additional parameters to `start_workflow()`
+
 # 1.5.0
 * Added `workflow_time()` method that returns a consistent datetime.
 * Fixed a problem where too large lambda input would cause decider to crash

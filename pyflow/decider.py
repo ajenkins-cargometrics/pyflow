@@ -160,11 +160,23 @@ def poll_for_executions(workflows, domain, task_list, identity, max_time=None):
     the_decider.poll_for_decision_tasks(max_time)
 
 
-def start_workflow(domain, workflow_name, workflow_version, task_list, lambda_role, input=None, client=None):
+def start_workflow(domain, workflow_name, workflow_version, task_list, lambda_role, input=None, client=None,
+                   task_start_to_close_timeout=None, execution_start_to_close_timeout=None, task_priority=None,
+                   tag_list=None, child_policy=None):
     workflow_id = '{}@{}'.format(workflow_name, str(uuid.uuid4()))
 
     if client is None:
         client = boto3.client('swf')
+
+    # Optional args which override workflow defaults
+    other_args = dict(
+        taskStartToCloseTimeout=str(task_start_to_close_timeout),
+        executionStartToCloseTimeout=str(execution_start_to_close_timeout),
+        taskPriority=str(task_priority),
+        tagList=tag_list,
+        childPolicy=child_policy)
+
+    other_args = {k: v for k, v in other_args.items() if v is not None}
 
     response = client.start_workflow_execution(
         domain=domain,
@@ -172,7 +184,8 @@ def start_workflow(domain, workflow_name, workflow_version, task_list, lambda_ro
         workflowType={'name': workflow_name, 'version': workflow_version},
         taskList={'name': task_list},
         input=input,
-        lambdaRole=lambda_role)
+        lambdaRole=lambda_role,
+        **other_args)
 
     return {'workflowId': workflow_id, 'runId': response['runId']}
 
