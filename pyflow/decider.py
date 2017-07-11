@@ -1,3 +1,4 @@
+import numbers
 import time
 import traceback
 import uuid
@@ -170,13 +171,14 @@ def start_workflow(domain, workflow_name, workflow_version, task_list, lambda_ro
 
     # Optional args which override workflow defaults
     other_args = dict(
-        taskStartToCloseTimeout=str(task_start_to_close_timeout),
-        executionStartToCloseTimeout=str(execution_start_to_close_timeout),
-        taskPriority=str(task_priority),
+        taskStartToCloseTimeout=task_start_to_close_timeout,
+        executionStartToCloseTimeout=execution_start_to_close_timeout,
+        taskPriority=task_priority,
         tagList=tag_list,
         childPolicy=child_policy)
 
-    other_args = {k: v for k, v in other_args.items() if v is not None}
+    other_args = {k: str(v) if isinstance(v, numbers.Number) else v
+                  for k, v in other_args.items() if v is not None}
 
     response = client.start_workflow_execution(
         domain=domain,
