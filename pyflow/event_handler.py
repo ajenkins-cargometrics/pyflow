@@ -125,7 +125,13 @@ class EventHandler(object):
         invocation_id = self.decision_helper.event_invocation_id(event)
         invocation_state = self.decision_helper.workflow_state.get_invocation_state(invocation_id)
 
+        function_name = invocation_state.invocation_args.get('function_name')
+
+        logger.info("Lambda function failed: function_name=%r, reason=%r, details=%r",
+                    function_name, attributes.get('reason'), attributes.get('details'))
+
         if invocation_state.retries_left > 0 and self.should_retry_lambda(attributes):
+            logger.info('Retrying lambda invocation: function_name=%r', function_name)
             if not self.decision_helper.is_replaying:
                 self.decision_helper.schedule_lambda_invocation(**invocation_state.invocation_args)
             invocation_state.retries_left -= 1

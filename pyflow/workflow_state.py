@@ -19,7 +19,7 @@ class InvocationState(object):
 
     invocation_id = attr.ib()
 
-    invocation_args = attr.ib(default=None)
+    invocation_args = attr.ib(default=attr.Factory(dict))
 
     state = attr.ib(default=NOT_STARTED)
 
