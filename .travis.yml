@@ -7,7 +7,7 @@ install:
 - pip install -U pytest
 
 script:
-- pytest tests
+- env AWS_DEFAULT_REGION=us-west-2 pytest tests
 
 deploy:
   provider: pypi
