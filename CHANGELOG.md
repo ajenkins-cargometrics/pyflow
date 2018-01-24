@@ -1,3 +1,7 @@
+# 1.6.2
+
+* Added support for retrying lambda invocations which fail due to internal errors
+
 # 1.6.0
 * Added additional parameters to `start_workflow()`
 

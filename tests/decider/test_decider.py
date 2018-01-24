@@ -75,16 +75,16 @@ class StringConcatter(pyflow.Workflow):
 
 
 @pytest.fixture
-def s3_client():
-    """Returns a mock boto3 S3 client.  See botocore.stub.Stubber docstring for how to use it"""
-    return botocore.stub.Stubber(boto3.client('s3'))
+def swf_client():
+    """Returns a mock boto3 SWF client.  See botocore.stub.Stubber docstring for how to use it"""
+    return botocore.stub.Stubber(boto3.client('swf'))
 
 
 @pytest.fixture
-def decider(s3_client):
+def decider(swf_client):
     return pyflow.Decider([StringTransformer, StringConcatter],
                           domain='test-domain', task_list='string-transformer-decider',
-                          identity='string transformer decider', client=s3_client)
+                          identity='string transformer decider', client=swf_client)
 
 
 @attr.s
@@ -221,7 +221,7 @@ def test_process_decision_task(decider, test_case):
     assert test_case.expected_decisions == decision_helper.decisions
 
 
-def test_process_decision_maker_cumulative(decider):
+def test_process_decision_task_cumulative(decider):
     """Like test_process_decision_task, but process all decision tasks in one decider instance"""
     for test_case in process_decision_task_test_cases:
         decision_helper = decider.process_decision_task(test_case.decision_task)

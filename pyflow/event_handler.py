@@ -79,7 +79,7 @@ class EventHandler(object):
     }
 
     def __init__(self, decision_helper):
-        """:type decision_helper: dth.DecisionTaskHelper"""
+        """:type decision_helper: pyflow.decision_task_helper.DecisionTaskHelper"""
         self.decision_helper = decision_helper
 
     def update_state_from_event(self, event):
@@ -122,9 +122,18 @@ class EventHandler(object):
 
     def handle_lambda_function_failed(self, event):
         attributes = self.decision_helper.event_attributes(event)
-        return self._handle_state_change(event, ws.InvocationState.FAILED,
-                                         failure_reason=attributes.get('reason'),
-                                         failure_details=attributes.get('details'))
+        invocation_id = self.decision_helper.event_invocation_id(event)
+        invocation_state = self.decision_helper.workflow_state.get_invocation_state(invocation_id)
+
+        if invocation_state.retries_left > 0 and self.should_retry_lambda(attributes):
+            if not self.decision_helper.is_replaying:
+                self.decision_helper.schedule_lambda_invocation(**invocation_state.invocation_args)
+            invocation_state.retries_left -= 1
+            return self._handle_state_change(event, ws.InvocationState.HANDLED)
+        else:
+            return self._handle_state_change(event, ws.InvocationState.FAILED,
+                                             failure_reason=attributes.get('reason'),
+                                             failure_details=attributes.get('details'))
 
     def handle_lambda_function_scheduled(self, event):
         return self._handle_state_change(event, ws.InvocationState.HANDLED)
@@ -305,3 +314,7 @@ class EventHandler(object):
     def handle_record_marker_failed(self, event):
         attributes = self.decision_helper.event_attributes(event)
         return self._handle_state_change(event, ws.InvocationState.FAILED, failure_reason=attributes['cause'])
+
+    def should_retry_lambda(self, event_attributes):
+        reason = event_attributes.get('reason')
+        return reason in ('SdkClientException', 'ServiceException')

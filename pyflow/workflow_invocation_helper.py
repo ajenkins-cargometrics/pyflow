@@ -71,14 +71,19 @@ class WorkflowInvocationHelper(object):
         :return: A Future which yields the result of the lambda function
         """
         invocation_id = self._next_invocation_id('lambda')
-        invocation_state = self._workflow_state.get_invocation_state(invocation_id)
+
+        invocation_args = dict(invocation_id=invocation_id, function_name=function_name,
+                               input_arg=input_arg, timeout=timeout)
+
+        invocation_state = self._workflow_state.get_invocation_state(invocation_id, num_retries=5,
+                                                                     invocation_args=invocation_args)
         out_fut = future.InvocationFuture(invocation_state, self._decision_helper)
 
         if invocation_state.state == ws.InvocationState.NOT_STARTED:
             invocation_state.update_state(ws.InvocationState.HANDLED)
 
             if not self._decision_helper.is_replaying:
-                self._decision_helper.schedule_lambda_invocation(invocation_id, function_name, input_arg, timeout)
+                self._decision_helper.schedule_lambda_invocation(**invocation_args)
 
         return out_fut
 
@@ -289,7 +294,7 @@ class WorkflowInvocationHelper(object):
         :param timeout: Timeout in seconds to wait
         :param futures: One or more futures.  If any arguments are a list, they are assumed to be a list of futures.
         :return: A list containing the futures that finished, in the order that they finished.
-        :raises WaitTimedOutException: If no futures are done within timeout seconds.
+        :raises WaitTimedOutException: If predicate is not satisfied within timeout seconds.
         """
         timeout_fut = self.start_timer(timeout)
 
