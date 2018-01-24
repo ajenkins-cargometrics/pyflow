@@ -19,7 +19,11 @@ class InvocationState(object):
 
     invocation_id = attr.ib()
 
+    invocation_args = attr.ib(default=None)
+
     state = attr.ib(default=NOT_STARTED)
+
+    retries_left = attr.ib(default=0)
 
     result = attr.ib(default=None)
 
@@ -67,16 +71,20 @@ class WorkflowState(object):
     # The id of the last event added to the state
     last_seen_event_id = attr.ib(default=None)
 
-    def get_invocation_state(self, invocation_id, initial_state=InvocationState.NOT_STARTED):
+    def get_invocation_state(self, invocation_id, initial_state=InvocationState.NOT_STARTED, num_retries=0,
+                             invocation_args=None):
         """
         Gets the invocation state for an invocation_id, creating a new state if none exists
 
         :param invocation_id: The invocation id of the state to fetch
         :param initial_state: The initial value to set the state property to if a new InvocationState is created
+        :param num_retries: Number of retries this invocation should be created with
+        :param invocation_args: Arguments used to initiate this invocation
         :return: The InvocationState object for invocation_id
         """
         invocation_state = self.invocation_states.get(invocation_id)
         if invocation_state is None:
             invocation_state = self.invocation_states[invocation_id] = InvocationState(
-                invocation_id=invocation_id, state=initial_state)
+                invocation_id=invocation_id, state=initial_state, retries_left=num_retries,
+                invocation_args=invocation_args)
         return invocation_state
