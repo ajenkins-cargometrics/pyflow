@@ -24,6 +24,7 @@ setup(
     url='https://github.com/ajenkins-cargometrics/pyflow',
     description='Python Workflow Library built on the AWS SWF service',
     long_description=long_description,
+    long_description_content_type="text/markdown",
     install_requires=[
         'boto3',
         'attrs',
