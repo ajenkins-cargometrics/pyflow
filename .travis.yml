@@ -1,5 +1,5 @@
 language: python
-python: 2.7
+python: 3.7
 sudo: false
 
 install:
@@ -10,6 +10,7 @@ script:
 - env AWS_DEFAULT_REGION=us-west-2 pytest tests
 
 deploy:
+  skip_cleanup: true
   provider: pypi
   user: ajenkins
   password:
