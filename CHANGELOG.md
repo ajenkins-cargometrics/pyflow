@@ -1,3 +1,7 @@
+# 2.0.0
+
+* Converted to python 3.x, dropped 2.x compatibility.
+
 # 1.6.2
 
 * Added support for retrying lambda invocations which fail due to internal errors

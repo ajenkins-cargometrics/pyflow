@@ -21,17 +21,17 @@ class StringTransformer(pyflow.Workflow):
 
         # is_replaying is True if this or some other decider process already executed this line
         if not self.swf.is_replaying:
-            print "First time hitting this line"
+            print("First time hitting this line")
 
         # Another way to run something only once, also propagates the result.
         def run_once(x):
-            print "run_once({!r}) called".format(x)
+            print("run_once({!r}) called".format(x))
             return x + 1
 
         run_once_fut = self.swf.invoke_once(run_once, 42)
         result = run_once_fut.result()
         if not self.swf.is_replaying:
-            print "run_once result = {!r}".format(result)
+            print("run_once result = {!r}".format(result))
 
         # demonstrate error handling
         try:

@@ -16,7 +16,7 @@ def main():
         lambda_role=lambda_role,
         input='["Hello", " ", "World"]')
 
-    print "Workflow started: {}".format(execution_info)
+    print("Workflow started: {}".format(execution_info))
 
 
 if __name__ == '__main__':
